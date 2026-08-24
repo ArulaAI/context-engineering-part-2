@@ -12,6 +12,10 @@
 # this hook — that is deliberate, because hook availability is not guaranteed.
 #
 # Reminder: VS Code ignores "matcher". Filter on tool_name yourself.
+#
+# No Python: tool_name comes from the same fixed-shape hook payload as
+# quiet-build.sh, and .workflow/state.json is written by scripts/loop.sh in a
+# fixed, known shape — one field per line — so both are plain grep/sed reads.
 
 set -uo pipefail
 INPUT="$(cat)"
@@ -20,7 +24,10 @@ STATE=".workflow/state.json"
 allow() { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'; exit 0; }
 deny()  { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$1"; exit 0; }
 
-TOOL="$(printf '%s' "$INPUT" | python3 -c "import json,sys;print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null)"
+TOOL="$(printf '%s' "$INPUT" \
+  | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
+  | head -1 \
+  | sed -E 's/.*"tool_name"[[:space:]]*:[[:space:]]*"([^"]*)"/\1/')"
 
 # Only gate mutating tools.
 case "$TOOL" in
@@ -30,11 +37,7 @@ esac
 
 [ -f "$STATE" ] || allow
 
-STATUS="$(python3 -c "
-import json,sys
-try: print(json.load(open('$STATE')).get('status',''))
-except Exception: print('')
-" 2>/dev/null)"
+STATUS="$(sed -n 's/.*"status": *"\([A-Z_]*\)".*/\1/p' "$STATE" | head -1)"
 
 case "$STATUS" in
   STOP_THRASHING)

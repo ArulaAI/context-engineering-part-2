@@ -29,32 +29,56 @@
 #   VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 # — so the same attempt-budget/thrashing bookkeeper governs a task-specific
 # verifier without duplicating any of this file's logic.
+#
+# No dependencies beyond bash + shasum + the standard coreutils. State lives in
+# three small plain-text files, not one JSON blob — deliberately: the verifier's
+# raw output can contain quotes, backslashes, and newlines, which is exactly the
+# kind of content that's fragile to embed inside hand-rolled JSON. Keeping it in
+# its own file sidesteps the escaping problem instead of solving it cleverly.
+#
+#   .workflow/state.json           attempts, max_attempts, status — fixed-shape,
+#                                   safe to hand-write because every value in it
+#                                   is a number or a name from a known short list
+#   .workflow/verdict-hashes.txt   one hash per line, append-only within a loop
+#   .workflow/last-verdict.txt     the raw verifier output, byte for byte
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 3
 
 STATE_DIR=".workflow"
 STATE="$STATE_DIR/state.json"
+HASHES="$STATE_DIR/verdict-hashes.txt"
+LAST_VERDICT="$STATE_DIR/last-verdict.txt"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"
 VERIFY_CMD="${VERIFY_CMD:-scripts/verify.sh}"
 mkdir -p "$STATE_DIR"
 
+write_state() {
+  # $1=attempts $2=max_attempts $3=status — all three are always a plain
+  # integer or a name from a fixed set, so this is safe to hand-write.
+  printf '{\n  "attempts": %s,\n  "max_attempts": %s,\n  "status": "%s"\n}\n' \
+    "$1" "$2" "$3" > "$STATE"
+}
+
+read_field() {
+  # $1=field name — extracts it from $STATE via the exact shape write_state
+  # always produces, one field per line.
+  sed -n "s/.*\"$1\": *\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p" "$STATE" | head -1
+}
+
 case "${1:-check}" in
 
   reset)
-    python3 - "$STATE" "$MAX_ATTEMPTS" <<'PY'
-import json, sys
-json.dump({"attempts": 0, "max_attempts": int(sys.argv[2]),
-           "verdict_hashes": [], "last_verdict": "", "status": "READY"},
-          open(sys.argv[1], "w"), indent=2)
-PY
+    write_state 0 "$MAX_ATTEMPTS" READY
+    : > "$HASHES"
+    : > "$LAST_VERDICT"
     echo "loop reset — budget ${MAX_ATTEMPTS}"
     exit 0
     ;;
 
   status)
     [ -f "$STATE" ] || { echo "no loop in progress"; exit 0; }
-    python3 -c "import json,sys;s=json.load(open(sys.argv[1]));print(f\"attempt {s['attempts']}/{s['max_attempts']}  status={s['status']}\")" "$STATE"
+    echo "attempt $(read_field attempts)/$(read_field max_attempts)  status=$(read_field status)"
     exit 0
     ;;
 
@@ -66,43 +90,40 @@ esac
 
 VERDICT="$(bash "$VERIFY_CMD" 2>&1)"; RC=$?
 HASH="$(printf '%s' "$VERDICT" | shasum | cut -c1-12)"
+printf '%s' "$VERDICT" > "$LAST_VERDICT"
 
-python3 - "$STATE" "$RC" "$HASH" "$VERDICT" <<'PY'
-import json, sys
-state_path, rc, h, verdict = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
-s = json.load(open(state_path))
+ATTEMPTS="$(read_field attempts)"
+MAX="$(read_field max_attempts)"
 
-if rc == 0:
-    s.update(status="DONE", last_verdict=verdict)
-    json.dump(s, open(state_path, "w"), indent=2)
-    print(verdict); print("DONE — green.")
-    sys.exit(0)
+if [ "$RC" -eq 0 ]; then
+  write_state "$ATTEMPTS" "$MAX" DONE
+  echo "$VERDICT"
+  echo "DONE — green."
+  exit 0
+fi
 
-s["attempts"] += 1
-repeat = h in s["verdict_hashes"]
-s["verdict_hashes"].append(h)
-s["last_verdict"] = verdict
+ATTEMPTS=$((ATTEMPTS + 1))
 
 # Thrashing: the verifier said exactly this before. Edits are landing, the
 # outcome is not moving. More attempts will not help; a human must look.
-if repeat:
-    s["status"] = "STOP_THRASHING"
-    json.dump(s, open(state_path, "w"), indent=2)
-    print(verdict)
-    print(f"STOP — thrashing. Identical verdict at attempt {s['attempts']} (hash {h}).")
-    print("The diff is moving; the outcome is not. Escalate, do not retry.")
-    sys.exit(4)
+if grep -qFx "$HASH" "$HASHES" 2>/dev/null; then
+  echo "$HASH" >> "$HASHES"
+  write_state "$ATTEMPTS" "$MAX" STOP_THRASHING
+  echo "$VERDICT"
+  echo "STOP — thrashing. Identical verdict at attempt ${ATTEMPTS} (hash ${HASH})."
+  echo "The diff is moving; the outcome is not. Escalate, do not retry."
+  exit 4
+fi
+echo "$HASH" >> "$HASHES"
 
-if s["attempts"] >= s["max_attempts"]:
-    s["status"] = "STOP_BUDGET"
-    json.dump(s, open(state_path, "w"), indent=2)
-    print(verdict)
-    print(f"STOP — budget exhausted ({s['attempts']}/{s['max_attempts']}). Escalate to a human.")
-    sys.exit(5)
+if [ "$ATTEMPTS" -ge "$MAX" ]; then
+  write_state "$ATTEMPTS" "$MAX" STOP_BUDGET
+  echo "$VERDICT"
+  echo "STOP — budget exhausted (${ATTEMPTS}/${MAX}). Escalate to a human."
+  exit 5
+fi
 
-s["status"] = "CONTINUE"
-json.dump(s, open(state_path, "w"), indent=2)
-print(verdict)
-print(f"CONTINUE — attempt {s['attempts']}/{s['max_attempts']} used.")
-sys.exit(1)
-PY
+write_state "$ATTEMPTS" "$MAX" CONTINUE
+echo "$VERDICT"
+echo "CONTINUE — attempt ${ATTEMPTS}/${MAX} used."
+exit 1

@@ -12,6 +12,11 @@
 #   `mvn test` into the quiet recipe automatically — you can only make the verbose
 #   form fail, so the quiet one is the path of least resistance. That gap between
 #   "requested" and "enforced" is the lesson.
+#
+# No Python: the hook payload's shape is fixed and known (a flat "tool_name"
+# string, a "command" or "commandLine" string one level down in "tool_input"),
+# so a plain grep/sed extraction is enough — a full JSON parser would be solving
+# a harder problem than this input actually poses.
 
 set -uo pipefail
 INPUT="$(cat)"
@@ -19,7 +24,12 @@ INPUT="$(cat)"
 allow() { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'; exit 0; }
 deny()  { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$1"; exit 0; }
 
-field() { printf '%s' "$INPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('$1','') or '')" 2>/dev/null; }
+field() {
+  printf '%s' "$INPUT" \
+    | grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+    | head -1 \
+    | sed -E "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"([^\"]*)\"/\\1/"
+}
 
 TOOL="$(field tool_name)"
 
@@ -29,13 +39,8 @@ case "$TOOL" in
   *) allow ;;
 esac
 
-CMD="$(printf '%s' "$INPUT" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-i=d.get('tool_input') or {}
-print(i.get('command') or i.get('commandLine') or '')
-" 2>/dev/null)"
-
+CMD="$(field command)"
+[ -n "$CMD" ] || CMD="$(field commandLine)"
 [ -n "$CMD" ] || allow
 
 # Allow the sanctioned recipes.
