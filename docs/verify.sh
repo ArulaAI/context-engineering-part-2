@@ -113,28 +113,33 @@ else
   fi
 
   # Apply the fix in place: compare the computed fee, not the raw amount.
-  python3 - <<'PY'
-import re
-path = "src/main/java/com/meridian/payments/PaymentService.java"
-src = open(path).read()
-buggy = '''        } else if (paymentType.equals("SEPA")) {
-            // SEPA: 0.35% fee with a EUR 2.00 minimum fee (MFIN-2088)
-            if (amount.compareTo(BigDecimal.valueOf(2.00)) >= 0) {
-                return amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);
-            }
-            return BigDecimal.valueOf(2.00);'''
-fixed = '''        } else if (paymentType.equals("SEPA")) {
-            // SEPA: 0.35% fee with a EUR 2.00 minimum fee (MFIN-2088)
-            BigDecimal sepaFee = amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);
-            if (sepaFee.compareTo(BigDecimal.valueOf(2.00)) >= 0) {
-                return sepaFee;
-            }
-            return BigDecimal.valueOf(2.00);'''
-if buggy not in src:
-    raise SystemExit("A5: could not locate the buggy branch to patch — fixture text drifted")
-open(path, "w").write(src.replace(buggy, fixed))
-PY
-  if [ $? -ne 0 ]; then
+  # No Python: this is an exact two-line replacement at a known anchor, so a
+  # small awk pass (write to a temp file, then move it back) is enough.
+  FEE_JAVA="src/main/java/com/meridian/payments/PaymentService.java"
+  FEE_JAVA_TMP="$(mktemp)"
+  awk '
+    $0 == "            if (amount.compareTo(BigDecimal.valueOf(2.00)) >= 0) {" {
+      print "            BigDecimal sepaFee = amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);"
+      print "            if (sepaFee.compareTo(BigDecimal.valueOf(2.00)) >= 0) {"
+      found = 1
+      skipnext = 1
+      next
+    }
+    skipnext == 1 {
+      print "                return sepaFee;"
+      skipnext = 0
+      next
+    }
+    { print }
+    END { exit (found == 1) ? 0 : 1 }
+  ' "$FEE_JAVA" > "$FEE_JAVA_TMP"
+  AWK_RC=$?
+  if [ "$AWK_RC" -eq 0 ]; then
+    mv "$FEE_JAVA_TMP" "$FEE_JAVA"
+  else
+    rm -f "$FEE_JAVA_TMP"
+  fi
+  if [ "$AWK_RC" -ne 0 ]; then
     bad "could not apply the in-place fix for the clears-once-fixed check"
   else
     mvn -B -q test-compile >/dev/null 2>&1

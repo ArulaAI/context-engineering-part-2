@@ -8,6 +8,13 @@
 # PIT deliberately corrupts the code (flips a conditional, swaps * for /, returns
 # null) and re-runs the suite. A mutant that survives is a change no test caught.
 #
+# Not used by any of this lab's 7 stages — ported for tooling parity, available
+# if you want it.
+#
+# No Python: PIT's mutations.xml is line-oriented in practice — every <mutation>
+# element PIT emits is self-contained on one line — so this is a plain awk pass
+# over grep-filtered lines, not a general XML parser.
+#
 # usage: scripts/mutation.sh [--quiet]
 
 set -uo pipefail
@@ -26,27 +33,56 @@ mvn -B org.pitest:pitest-maven:mutationCoverage >"$LOG" 2>&1 || {
 REPORT=target/pit-reports/mutations.xml
 [ -f "$REPORT" ] || { echo "no report at $REPORT"; exit 2; }
 
-python3 - "$REPORT" "$QUIET" <<'PY'
-import sys, xml.etree.ElementTree as ET
-from collections import Counter
+MUT_LINES="$(grep '<mutation ' "$REPORT")"
+TOTAL="$(printf '%s\n' "$MUT_LINES" | grep -c '<mutation ')"
+[ "$TOTAL" -gt 0 ] || { echo "no mutations found in $REPORT"; exit 2; }
 
-report, quiet = sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else ""
-muts = ET.parse(report).getroot().findall("mutation")
-total = len(muts)
-st = Counter(m.get("status") for m in muts)
-killed = st.get("KILLED", 0)
-score = round(100 * killed / total) if total else 0
+KILLED="$(printf '%s\n' "$MUT_LINES" | grep -c "status='KILLED'")"
+SCORE="$(awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf "%.0f", 100*k/t}')"
 
-print(f"mutation score: {score}%  ({killed}/{total} killed)")
-for k, v in st.most_common():
-    print(f"  {k:<14}{v}")
+echo "mutation score: ${SCORE}%  (${KILLED}/${TOTAL} killed)"
 
-if quiet == "--quiet":
-    sys.exit(0)
+printf '%s\n' "$MUT_LINES" \
+  | grep -o "status='[A-Z_]*'" \
+  | sed "s/status='//;s/'//" \
+  | sort | uniq -c | sort -rn \
+  | awk '{printf "  %-14s%s\n", $2, $1}'
 
-print("\nfee logic — the rates this whole codebase is about:")
-for m in muts:
-    if m.findtext("mutatedMethod") == "calculateFee":
-        cls = m.findtext("mutatedClass", "").split(".")[-1]
-        print(f"  [{m.get('status'):<12}] {cls}:{m.findtext('lineNumber')}  {m.findtext('description')}")
-PY
+if [ "$QUIET" = "--quiet" ]; then
+  exit 0
+fi
+
+echo ""
+echo "fee logic — the rates this whole codebase is about:"
+printf '%s\n' "$MUT_LINES" | awk '
+function tagval(line, tag,    pat, s, rest, e) {
+    pat = "<" tag ">"
+    s = index(line, pat)
+    if (s == 0) return ""
+    s += length(pat)
+    rest = substr(line, s)
+    e = index(rest, "</" tag ">")
+    if (e == 0) return ""
+    return substr(rest, 1, e - 1)
+}
+function unescape(s,    sq) {
+    sq = sprintf("%c", 39)
+    gsub(/&quot;/, "\"", s)
+    gsub(/&apos;/, sq, s)
+    gsub(/&lt;/, "<", s)
+    gsub(/&gt;/, ">", s)
+    gsub(/&amp;/, "\\&", s)
+    return s
+}
+{
+    if (tagval($0, "mutatedMethod") != "calculateFee") next
+    match($0, /status=.[A-Z_]*./)
+    status = substr($0, RSTART + 8, RLENGTH - 9)
+    cls = tagval($0, "mutatedClass")
+    n = split(cls, parts, ".")
+    clsShort = parts[n]
+    line = tagval($0, "lineNumber")
+    desc = unescape(tagval($0, "description"))
+    printf "  [%-12s] %s:%s  %s\n", status, clsShort, line, desc
+}
+'
