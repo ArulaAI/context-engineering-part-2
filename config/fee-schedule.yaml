@@ -1,0 +1,22 @@
+# fee-schedule.yaml — Meridian's authoritative, committed fee schedule.
+#
+# This file is the authority tier above documentation, code comments, and search results.
+# If a rate here disagrees with anything else in the repo — a doc, an ADR, a comment, a
+# model's recollection — this file wins. That is what "authoritative committed
+# configuration" means in the context-authority hierarchy:
+#
+#   bytecode/compiler > authoritative contract or committed config > current implementation
+#   > current documentation > semantic search result > model inference
+#
+# Current, effective rates:
+wire_percent: 0.0025          # WIRE — 0.25%
+ach_flat_usd: 0.25            # ACH — flat $0.25
+swift_percent: 0.005          # SWIFT — 0.5%
+swift_flat_usd: 15.00         # SWIFT — plus $15 flat
+sepa_percent: 0.0035          # SEPA — 0.35% (new, MFIN-2088)
+sepa_minimum_eur: 2.00        # SEPA — EUR 2.00 minimum, applied to the COMPUTED FEE, not the raw amount
+
+# Retired. Never current. Never cite.
+# LegacyPaymentUtils.calculateFee() still contains a hardcoded 1% WIRE rate and 2014 FX
+# rates. It is dead code (0 bytecode dependencies from PaymentService — verify with
+# ./scripts/authority.sh), but its text is still in the tree and still shows up in search.
