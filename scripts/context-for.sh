@@ -11,9 +11,10 @@
 # .context/context-register.yaml is a DELIBERATELY FLAT YAML subset (two levels of
 # nesting max, one scalar per line, an optional `>` folded block only on `objective`).
 # That's not a limitation slipped in by accident — it's what lets this script parse
-# the register with Python's standard library and no third-party YAML dependency,
-# matching every other script in this repo's "no dependencies beyond what's already
-# installed" rule.
+# the register with plain awk/bash and no YAML library at all, matching every other
+# script in this repo's "no dependencies beyond what's already installed" rule. No
+# Python either: the register's shape is fixed and known, so an awk state machine
+# (the same style outline.sh already uses for Java structure) is enough.
 #
 # usage: scripts/context-for.sh <work-unit>
 
@@ -34,162 +35,247 @@ if [ ! -f "$REGISTER" ]; then
   exit 3
 fi
 
-python3 - "$REGISTER" "$WORK_UNIT" <<'PY'
-import sys, re
+for key in objective verified_facts authoritative_sources decisions constraints superseded_sources unknowns; do
+  grep -q "^${key}:" "$REGISTER" || {
+    echo "context-for: register is missing required key: $key" >&2
+    exit 2
+  }
+done
 
-path, work_unit = sys.argv[1], sys.argv[2]
-lines = open(path, encoding="utf-8").read().splitlines()
-
-def unquote(s):
-    s = s.strip()
-    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
-        return s[1:-1]
+PARSED="$(awk '
+function unquote(s) {
+    gsub(/^[ \t]+/, "", s); gsub(/[ \t]+$/, "", s)
+    n = length(s)
+    if (n >= 2) {
+        first = substr(s, 1, 1); last = substr(s, n, 1)
+        if ((first == DQ && last == DQ) || (first == SQ && last == SQ))
+            s = substr(s, 2, n - 2)
+    }
     return s
+}
+function flush_item() {
+    if (cur_section != "" && is_object[cur_section] && item_started) {
+        print "ITEM\t" cur_section "\t" item_line
+    }
+    item_started = 0
+    item_line = ""
+}
+BEGIN {
+    DQ = sprintf("%c", 34)
+    SQ = sprintf("%c", 39)
+    SEP = sprintf("%c", 1)
+    is_object["verified_facts"] = 1
+    is_object["decisions"] = 1
+    is_object["superseded_sources"] = 1
+    is_scalar["authoritative_sources"] = 1
+    is_scalar["constraints"] = 1
+    is_scalar["unknowns"] = 1
+    cur_section = ""
+    obj_first_line = ""
+    obj_text = ""
+    item_started = 0
+    item_line = ""
+}
+/^[a-z_]+:/ {
+    if (cur_section == "objective") {
+        if (obj_first_line == ">") { OBJECTIVE = obj_text }
+        else if (obj_first_line != "") { OBJECTIVE = unquote(obj_first_line) }
+        else { OBJECTIVE = obj_text }
+    }
+    flush_item()
+    line = $0
+    match(line, /^[a-z_]+/)
+    key = substr(line, RSTART, RLENGTH)
+    rest = substr(line, RLENGTH + 2)
+    gsub(/^[ \t]+/, "", rest); gsub(/[ \t]+$/, "", rest)
+    cur_section = key
+    if (key == "objective") { obj_first_line = rest; obj_text = "" }
+    next
+}
+cur_section == "objective" {
+    line = $0
+    gsub(/^[ \t]+/, "", line)
+    if (line != "") { obj_text = (obj_text == "" ? line : obj_text " " line) }
+    next
+}
+cur_section != "" && is_scalar[cur_section] {
+    line = $0
+    gsub(/^[ \t]+/, "", line)
+    if (line ~ /^-[ \t]/) {
+        val = substr(line, 3)
+        gsub(/^[ \t]+/, "", val)
+        print "LIST\t" cur_section "\t" unquote(val)
+    }
+    next
+}
+cur_section != "" && is_object[cur_section] {
+    raw = $0
+    if (raw ~ /^[ \t]+-[ \t]+[a-z_]+:/) {
+        flush_item()
+        item_started = 1
+        tmp = raw
+        sub(/^[ \t]+-[ \t]+/, "", tmp)
+        match(tmp, /^[a-z_]+/)
+        k = substr(tmp, RSTART, RLENGTH)
+        v = substr(tmp, RLENGTH + 2)
+        gsub(/^[ \t]+/, "", v)
+        item_line = k "=" unquote(v)
+    } else if (raw ~ /^[ \t]+[a-z_]+:/ && item_started) {
+        tmp = raw
+        gsub(/^[ \t]+/, "", tmp)
+        match(tmp, /^[a-z_]+/)
+        k = substr(tmp, RSTART, RLENGTH)
+        v = substr(tmp, RLENGTH + 2)
+        gsub(/^[ \t]+/, "", v)
+        item_line = item_line SEP k "=" unquote(v)
+    }
+    next
+}
+END {
+    if (cur_section == "objective") {
+        if (obj_first_line == ">") { OBJECTIVE = obj_text }
+        else if (obj_first_line != "") { OBJECTIVE = unquote(obj_first_line) }
+        else { OBJECTIVE = obj_text }
+    }
+    flush_item()
+    print "OBJ\t" OBJECTIVE
+}
+' "$REGISTER")"
 
-# ---- pass 1: split into top-level sections -------------------------------
-sections = {}
-current_key = None
-buf = []
-i = 0
-required = {"objective", "verified_facts", "authoritative_sources",
-            "decisions", "constraints", "superseded_sources", "unknowns"}
+OBJECTIVE=""
+FACT_ITEMS=()
+DECISION_ITEMS=()
+SUPERSEDED_ITEMS=()
+AUTH_SOURCES=()
+CONSTRAINTS=()
+UNKNOWNS=()
 
-while i < len(lines):
-    line = lines[i]
-    m = re.match(r'^([a-z_]+):(.*)$', line)
-    if m and not line.startswith((' ', '\t')):
-        if current_key is not None:
-            sections[current_key] = buf
-        current_key = m.group(1)
-        rest = m.group(2).strip()
-        buf = [rest] if rest else []
-    else:
-        if current_key is not None:
-            buf.append(line)
-    i += 1
-if current_key is not None:
-    sections[current_key] = buf
+while IFS=$'\t' read -r tag section rest; do
+  case "$tag" in
+    OBJ) OBJECTIVE="$section" ;;
+    LIST)
+      case "$section" in
+        authoritative_sources) AUTH_SOURCES+=("$rest") ;;
+        constraints)           CONSTRAINTS+=("$rest") ;;
+        unknowns)               UNKNOWNS+=("$rest") ;;
+      esac
+      ;;
+    ITEM)
+      case "$section" in
+        verified_facts)       FACT_ITEMS+=("$rest") ;;
+        decisions)             DECISION_ITEMS+=("$rest") ;;
+        superseded_sources)    SUPERSEDED_ITEMS+=("$rest") ;;
+      esac
+      ;;
+  esac
+done <<< "$PARSED"
 
-missing = required - set(sections.keys())
-if missing:
-    print(f"context-for: register is missing required key(s): {', '.join(sorted(missing))}", file=sys.stderr)
-    sys.exit(2)
+get_field() {
+  # $1 = SOH-joined key=value item, $2 = key to extract.
+  # Deliberately does not rely on `IFS=<ctrl-char> read -a` to split fields —
+  # that construct silently produced a single unsplit field on this repo's own
+  # bash (3.2.57), a real and reproducible quirk, not a hypothetical one.
+  # `tr` to newlines + a plain `while read` loop is the boring, reliable way.
+  local item="$1" key="$2" part
+  while IFS= read -r part; do
+    if [ "${part%%=*}" = "$key" ]; then
+      printf '%s' "${part#*=}"
+      return 0
+    fi
+  done < <(printf '%s\n' "$item" | tr '\001' '\n')
+}
 
-# ---- objective: either inline or a `>` folded block ------------------------
-obj_lines = sections["objective"]
-if obj_lines and obj_lines[0].strip() == ">":
-    objective = " ".join(l.strip() for l in obj_lines[1:] if l.strip())
-elif obj_lines and obj_lines[0].strip():
-    objective = unquote(obj_lines[0])
-else:
-    objective = " ".join(l.strip() for l in obj_lines if l.strip())
-
-# ---- list-of-scalars sections ----------------------------------------------
-def parse_scalar_list(raw_lines):
-    out = []
-    for l in raw_lines:
-        s = l.strip()
-        if s.startswith("- "):
-            out.append(unquote(s[2:]))
-    return out
-
-authoritative_sources = parse_scalar_list(sections["authoritative_sources"])
-constraints = parse_scalar_list(sections["constraints"])
-unknowns = parse_scalar_list(sections["unknowns"])
-
-# ---- list-of-objects sections ("  - key: value" then "    key: value") ----
-def parse_object_list(raw_lines):
-    items = []
-    current = None
-    for l in raw_lines:
-        s = l.rstrip()
-        if not s.strip():
-            continue
-        m = re.match(r'^\s*-\s+([a-z_]+):\s*(.*)$', s)
-        if m and s.lstrip().startswith("-"):
-            if current is not None:
-                items.append(current)
-            current = {m.group(1): unquote(m.group(2))}
-            continue
-        m2 = re.match(r'^\s+([a-z_]+):\s*(.*)$', s)
-        if m2 and current is not None:
-            current[m2.group(1)] = unquote(m2.group(2))
-    if current is not None:
-        items.append(current)
-    return items
-
-verified_facts = parse_object_list(sections["verified_facts"])
-decisions = parse_object_list(sections["decisions"])
-superseded_sources = parse_object_list(sections["superseded_sources"])
-
-def applies(fact):
-    tag = fact.get("applies_to")
-    return tag is None or tag == "" or tag == work_unit
-
-facts_for_unit = [f for f in verified_facts if applies(f)]
-discarded = len(verified_facts) - len(facts_for_unit)
+# ---- filter verified_facts by applies_to tag -------------------------------
+FACTS_FOR_UNIT=()
+DISCARDED=0
+for item in "${FACT_ITEMS[@]}"; do
+  tag_val="$(get_field "$item" applies_to)"
+  if [ -z "$tag_val" ] || [ "$tag_val" = "$WORK_UNIT" ]; then
+    FACTS_FOR_UNIT+=("$item")
+  else
+    DISCARDED=$((DISCARDED + 1))
+  fi
+done
 
 # ---- print the package ------------------------------------------------------
-print(f"CONTEXT PACKAGE — {work_unit}")
-print("=====================================================")
-print("Objective")
-print(f"  {objective}" if objective else "  (none set)")
-print()
+echo "CONTEXT PACKAGE — ${WORK_UNIT}"
+echo "====================================================="
+echo "Objective"
+if [ -n "$OBJECTIVE" ]; then echo "  $OBJECTIVE"; else echo "  (none set)"; fi
+echo ""
 
-print("Relevant source files")
-seen_src = []
-for f in facts_for_unit:
-    src = f.get("source", "")
-    if src and src not in seen_src:
-        seen_src.append(src)
-if seen_src:
-    for src in seen_src:
-        print(f"  {src}")
-else:
-    print("  (none promoted yet)")
-print()
+echo "Relevant source files"
+if [ "${#FACTS_FOR_UNIT[@]}" -gt 0 ]; then
+  SEEN_SRC=()
+  for item in "${FACTS_FOR_UNIT[@]}"; do
+    src="$(get_field "$item" source)"
+    [ -z "$src" ] && continue
+    already=0
+    for s in "${SEEN_SRC[@]:-}"; do [ "$s" = "$src" ] && already=1 && break; done
+    if [ "$already" -eq 0 ]; then
+      SEEN_SRC+=("$src")
+      echo "  $src"
+    fi
+  done
+else
+  echo "  (none promoted yet)"
+fi
+echo ""
 
-print("Applicable verified facts")
-if facts_for_unit:
-    for f in facts_for_unit:
-        print(f"  - {f.get('claim', '(no claim text)')}")
-        print(f"    (source: {f.get('source', 'unknown')}, {f.get('source_type', 'unspecified type')})")
-else:
-    print("  (none promoted yet)")
-print()
+echo "Applicable verified facts"
+if [ "${#FACTS_FOR_UNIT[@]}" -gt 0 ]; then
+  for item in "${FACTS_FOR_UNIT[@]}"; do
+    claim="$(get_field "$item" claim)"; [ -z "$claim" ] && claim="(no claim text)"
+    src="$(get_field "$item" source)"; [ -z "$src" ] && src="unknown"
+    st="$(get_field "$item" source_type)"; [ -z "$st" ] && st="unspecified type"
+    echo "  - $claim"
+    echo "    (source: $src, $st)"
+  done
+else
+  echo "  (none promoted yet)"
+fi
+echo ""
 
-print("Authoritative contracts/config")
-if authoritative_sources:
-    for s in authoritative_sources:
-        print(f"  {s}")
-else:
-    print("  (none declared)")
-if superseded_sources:
-    for s in superseded_sources:
-        print(f"  {s.get('source','?')} is SUPERSEDED by {s.get('superseded_by','?')} — {s.get('warning','')}")
-print()
+echo "Authoritative contracts/config"
+if [ "${#AUTH_SOURCES[@]}" -gt 0 ]; then
+  for s in "${AUTH_SOURCES[@]}"; do echo "  $s"; done
+else
+  echo "  (none declared)"
+fi
+if [ "${#SUPERSEDED_ITEMS[@]}" -gt 0 ]; then
+  for item in "${SUPERSEDED_ITEMS[@]}"; do
+    src="$(get_field "$item" source)"; [ -z "$src" ] && src="?"
+    by="$(get_field "$item" superseded_by)"; [ -z "$by" ] && by="?"
+    warn="$(get_field "$item" warning)"
+    echo "  $src is SUPERSEDED by $by — $warn"
+  done
+fi
+echo ""
 
-print("Constraints")
-if constraints:
-    for c in constraints:
-        print(f"  - {c}")
-else:
-    print("  (none recorded)")
-print()
+echo "Constraints"
+if [ "${#CONSTRAINTS[@]}" -gt 0 ]; then
+  for c in "${CONSTRAINTS[@]}"; do echo "  - $c"; done
+else
+  echo "  (none recorded)"
+fi
+echo ""
 
-if decisions:
-    print("Decisions")
-    for d in decisions:
-        print(f"  - {d.get('decision','?')}  (approved by: {d.get('approved_by','unspecified')})")
-    print()
+if [ "${#DECISION_ITEMS[@]}" -gt 0 ]; then
+  echo "Decisions"
+  for item in "${DECISION_ITEMS[@]}"; do
+    d="$(get_field "$item" decision)"; [ -z "$d" ] && d="?"
+    ab="$(get_field "$item" approved_by)"; [ -z "$ab" ] && ab="unspecified"
+    echo "  - $d  (approved by: $ab)"
+  done
+  echo ""
+fi
 
-print("Open questions")
-if unknowns:
-    for u in unknowns:
-        print(f"  - {u}")
-else:
-    print("  (none recorded)")
-print()
+echo "Open questions"
+if [ "${#UNKNOWNS[@]}" -gt 0 ]; then
+  for u in "${UNKNOWNS[@]}"; do echo "  - $u"; done
+else
+  echo "  (none recorded)"
+fi
+echo ""
 
-print(f"-- {len(facts_for_unit)} promoted fact(s) packaged; {discarded} excluded (not tagged for this work unit).")
-PY
+echo "-- ${#FACTS_FOR_UNIT[@]} promoted fact(s) packaged; ${DISCARDED} excluded (not tagged for this work unit)."
