@@ -2,3 +2,8 @@ target/
 *.class
 .DS_Store
 journey/
+
+# runtime state created live during the lab — regenerated per run, safe to delete
+.workflow/state.json
+.workflow/HANDOFF.md
+.context/context-register.yaml
