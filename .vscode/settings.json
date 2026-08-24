@@ -1,0 +1,71 @@
+{
+  // ==========================================================================
+  // Meridian Payments — Context Lifecycle Lab
+  //
+  // One of these ships deliberately OFF as a lab exercise. Read the comment
+  // above it before changing it.
+  // ==========================================================================
+
+
+  // --- Stage 1/2 exercise · the context firewall -----------------------------
+  //
+  // Uncomment the block below if you want to demonstrate that search-match
+  // snippets count toward the context window even when the matched file is
+  // never opened. `docs/adr/` is a good candidate: once ADR-0007 is marked
+  // Superseded, there is no reason a search for "SEPA" should still surface it.
+  //
+  // "search.exclude": {
+  //   "**/target/**": true
+  // },
+
+  // Keep build output out of the picture regardless — nobody wants a compiled
+  // class in their context window.
+  "files.exclude": {
+    "**/target": true
+  },
+
+
+  // --- Stage 4/5 · deterministic terminal gate (fallback tier) ---------------
+  //
+  // ⛔ READ THE SETTING NAME CAREFULLY.
+  //
+  //    chat.tools.terminal.autoApprove   <- THIS. Terminal commands only.
+  //    chat.tools.autoApprove            <- NOT THIS. Global "YOLO mode":
+  //                                         auto-approves EVERY tool call.
+  //
+  // They are one token apart. Type the wrong one on a work machine and you have
+  // silently disabled every confirmation you have, while believing you followed
+  // the lab.
+  //
+  // This is the fallback rung: if `.github/hooks/` is unavailable on your build,
+  // these rules give you the same deny-gate as a personal setting instead of a
+  // committed, team-wide one. VS Code evaluates them itself — the model is not
+  // consulted and cannot talk its way past them.
+  "chat.tools.terminal.autoApprove": {
+    "/^\\.\\/scripts\\/(verify|verify-change|loop|digest|authority|mutation|context-map|context-run|context-for|outline|test-gap)\\.sh/": true,
+    "/^git\\s+(status|diff|log|show|apply)/": true,
+    "/^(javap|jdeps|jshell)\\s/": true,
+
+    // There is no way on Copilot Chat to rewrite `mvn test` into the quiet
+    // recipe — you can only make the loud form fail so the quiet one is the
+    // path of least resistance. That gap between "requested" and "enforced"
+    // is Stage 2's whole point.
+    "/^mvn\\b.*\\b(test|compile|verify|install)\\b/": false,
+
+    "rm": false
+  },
+
+
+  // --- Stage 4 · human-in-the-loop hygiene -----------------------------------
+  //
+  // Auto-accepting an edit after a delay is rubber-stamping shipped as a
+  // feature. Agent-authored changes already get reviewed less, merged faster,
+  // and discussed less than human ones; a countdown that approves for you makes
+  // the review gate decorative. 0 disables it.
+  "chat.editing.autoAcceptDelay": 0,
+
+
+  // Java niceties so #usages and symbol navigation behave during the lab.
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "files.trimTrailingWhitespace": true
+}

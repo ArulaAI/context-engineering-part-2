@@ -1,0 +1,48 @@
+{
+  "//": [
+    "Meridian — deterministic gates for the SEPA fee-change workflow (MFIN-2088).",
+    "",
+    "THE ONE THING THAT WILL CATCH YOU OUT:",
+    "VS Code ignores the 'matcher' field. Every hook below fires on EVERY tool",
+    "invocation, so each script filters on tool_name read from stdin. A hook",
+    "copied from a Claude Code example looks correct and silently gates the",
+    "wrong tools. The matchers below are kept only as documentation of intent.",
+    "",
+    "NOTHING HERE IS LOAD-BEARING. The same rules are enforced one rung lower by",
+    "scripts/loop.sh and scripts/verify-change.sh, which work with no hook support",
+    "at all. Hooks upgrade 'the agent is told to stop' into 'the agent cannot",
+    "proceed' — that is the whole difference, and it is worth a lot."
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .github/hooks/bin/session-constraints.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "terminal",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .github/hooks/bin/quiet-build.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .github/hooks/bin/loop-bound.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
