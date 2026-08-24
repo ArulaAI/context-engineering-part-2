@@ -118,6 +118,11 @@ skills wrap a script in a `context: fork` boundary so its output — not its exe
 is what enters the conversation; agents wrap skills behind a restricted tool list; hooks
 enforce a couple of the same rules at the tool-call level, independent of any agent.
 
+Every box in the "tools" cluster below is something the JDK, Maven, or git already
+provide. Nothing here shells out to Python, or to anything else that isn't already a
+prerequisite for building Java with Maven — deliberate, since this lab's actual audience
+is Java engineers, not people who happen to have a Python environment set up.
+
 ```mermaid
 graph LR
     subgraph tools["what gets shelled out to"]
@@ -125,7 +130,6 @@ graph LR
         JDEPS[jdeps / javap]
         JSHELL[jshell]
         GIT[git]
-        PY[python3 stdlib]
     end
 
     subgraph scripts["scripts/ — deterministic, no model involved"]
@@ -149,8 +153,6 @@ graph LR
     MS --> MVN
     CRS --> MVN
     CRS --> GIT
-    CFS --> PY
-    LS --> PY
     LS -.->|"VERIFY_CMD env var —<br/>defaults to verify.sh,<br/>Stage 5 overrides it"| VS
     LS -.-> VCS
     VCS --> VS

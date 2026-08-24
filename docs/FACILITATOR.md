@@ -118,8 +118,10 @@ room watch the tagged fact disappear from the second run.
 
 **Watch for:** someone asking why the register is YAML and not JSON, or why it's
 hand-parsed instead of using a real YAML library. Answer: the flat-subset constraint is
-deliberate — it's what lets `context-for.sh` parse it with nothing but Python's standard
-library, matching every other script in this lab's "no new dependencies" rule.
+deliberate — it's what lets `context-for.sh` parse it with a plain `awk` state machine
+and zero dependencies beyond bash, matching every other script in this lab's "no new
+dependencies" rule — and specifically, no Python, since this lab's audience is Java
+engineers who won't reliably have it installed.
 
 > **Line to use:** "Three facts got promoted. Everything else from the last twenty minutes
 > — the raw test output, the false starts — is gone on purpose."

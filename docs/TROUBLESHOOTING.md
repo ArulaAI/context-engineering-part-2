@@ -143,13 +143,16 @@ before Stage 3.1.
 **Fix:** `cp .context/context-register.yaml.example .context/context-register.yaml`, or
 build your own from scratch following `.context/README.md`'s required keys.
 
-### `python3` errors inside a script
+### `context-for.sh` produces a garbled or empty package on a hand-edited register
 
-**Cause:** these scripts assume `python3` on `PATH` with only the standard library (no
-`pyyaml`, no third-party packages) — deliberately, to match this lab's "no dependencies
-beyond what's already installed" rule.
+**Cause:** none of this lab's scripts use Python — `context-for.sh` parses
+`.context/context-register.yaml` with a plain `awk` state machine, deliberately, since
+this lab's audience is Java engineers who won't reliably have Python installed. That
+parser only understands the exact flat shape in
+`.context/context-register.yaml.example`: two levels of nesting, one scalar per line,
+and a multi-line block scalar only on `objective`'s `>`. A hand-edited register that
+drifts from that shape (wrong indentation under a folded block, a nested list, a value
+that spans multiple lines anywhere else) will silently misparse rather than error clearly.
 
-**Fix:** confirm `python3 --version` resolves. If a script's Python heredoc errors on a
-register file you hand-edited, check it against the flat-subset shape in
-`.context/context-register.yaml.example` — nested lists beyond two levels or multi-line
-block scalars other than `objective`'s `>` are not supported by `context-for.sh`'s parser.
+**Fix:** diff your register against `.context/context-register.yaml.example`'s
+structure, not just its content, and fix indentation to match exactly.

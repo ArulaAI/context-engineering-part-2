@@ -12,8 +12,9 @@ from it instead of from a re-read of the whole conversation.
 `context-register.yaml` is a **deliberately flat YAML subset** — two levels of nesting
 max, one scalar per line, a `>` folded block only on `objective`. That's not a limitation
 that slipped in by accident: it's what lets `scripts/context-for.sh` parse the register
-with Python's standard library and no third-party YAML dependency, matching every other
-script in this lab's "no dependencies beyond what's already installed" rule.
+with a plain `awk` state machine and no YAML library, no Python, and no dependency
+beyond what's already installed alongside a JDK and Maven — matching every other script
+in this lab's "no dependencies beyond what's already installed" rule.
 
 Required top-level keys: `objective`, `verified_facts`, `authoritative_sources`,
 `decisions`, `constraints`, `superseded_sources`, `unknowns`. See
