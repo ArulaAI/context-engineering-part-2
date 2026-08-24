@@ -713,7 +713,7 @@ See `docs/TROUBLESHOOTING.md` for the full appendix. Quick pointers:
 | `context-for.sh` says "nothing has been promoted yet" | Run Stage 3.1 first — copy the example register |
 | `verify-change.sh` shows all four checks green before Stage 4 | Not expected — at clean baseline, `calculateFee(..., "SEPA")` returns `0`, which fails check 4 (`0 < 2.00`) by design. If you see all-green with no SEPA code, your working tree has drifted from baseline — run `git status` and `git log` |
 | `jshell` not found | It ships with JDK 17+; check `java -version` and that `jshell` is on `PATH` |
-| Stage 5.3's loop shows CONTINUE forever | You're not changing the code between checks — that's Stage 5.3's thrashing exercise, not a bug |
+| Stage 5.3's loop reaches thrashing (exit 4) on the very next check | Expected — running `loop.sh check` twice with no code change in between produces an identical verdict hash by design. Make the fix before the second run if you want to see exit 0 instead |
 
 ---
 
