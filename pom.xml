@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.meridian</groupId>
+    <artifactId>meridian-payments</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>Meridian Payments Platform</name>
+    <description>
+        Context Engineering Lab, Part 2 — Meridian Financial payments codebase.
+        This project exists so VS Code's Java Language Server recognizes the
+        source tree, so symbol-level context primitives (#usages, #symbolName)
+        resolve, and so workspace indexing behaves as it would in production.
+        The baseline compiles and its tests pass; the test suite is deliberately
+        incomplete so that Stage 2 has real coverage gaps to discover.
+    </description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <!--
+        Dependencies are pre-cached by docs/verify.sh (check A2), which runs a full
+        `mvn clean test`. Once cached, the lab runs fully offline.
+
+        junit-jupiter           JUnit 5 runner for the baseline suite.
+        mockito-core            Mocks for PaymentService's four constructor dependencies.
+        spring-security-crypto  Not referenced by the Part 2 baseline. Retained so the
+                                auth files carried over from Part 1 stay buildable if a
+                                facilitator extends the lab into that area.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+            <version>6.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!--
+                PIT mutation testing — Stage 4.
+
+                The JUnit 5 support is a PLUGIN DEPENDENCY, not a project dependency,
+                and it cannot be supplied from the command line. Without it, an ad-hoc
+                `mvn org.pitest:pitest-maven:mutationCoverage` fails with the misleading
+                message "Please check you have correctly installed the pitest plugin
+                for your project's test library".
+
+                Also note: the goal is not bound to a lifecycle phase, so run
+                `mvn test-compile` first or PIT reports "Created 0 mutation test units".
+                scripts/mutation.sh does both in the right order.
+            -->
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>1.25.9</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-junit5-plugin</artifactId>
+                        <version>1.2.1</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <targetClasses>
+                        <param>com.meridian.payments.*</param>
+                    </targetClasses>
+                    <targetTests>
+                        <param>com.meridian.payments.*Test</param>
+                    </targetTests>
+                    <timestampedReports>false</timestampedReports>
+                    <outputFormats>
+                        <param>XML</param>
+                        <param>HTML</param>
+                    </outputFormats>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

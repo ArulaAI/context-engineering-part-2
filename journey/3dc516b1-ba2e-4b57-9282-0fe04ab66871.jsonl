@@ -1,0 +1,2 @@
+{"ts": 1787541809, "event": "post-tool", "session": "3dc516b1-ba2e-4b57-9282-0fe04ab66871", "tool": "Bash", "hook_event": "PostToolUse"}
+{"ts": 1787541813, "event": "pre-tool", "session": "3dc516b1-ba2e-4b57-9282-0fe04ab66871", "tool": "Bash", "input_preview": "{\"command\": \"cd lab-context-lifecycle && grep -h \\\"Tests run\\\" target/surefire-reports/*.txt 2>/dev/null\\necho \\\"---gitignore & git init---\\\"\\ncat > .gitignore << 'EOF'\\ntarget/\\n*.class\\n.DS_Store\\nE", "hook_event": "PreToolUse"}
