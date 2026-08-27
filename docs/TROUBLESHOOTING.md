@@ -10,12 +10,12 @@ environments. Every fallback below still teaches the stage's lesson — none of 
 
 ### The three agents don't appear in the mode dropdown
 
-**Cause:** `lab-context-lifecycle/` was opened as a subfolder of another workspace, not
+**Cause:** `context-engineering-part-2/` was opened as a subfolder of another workspace, not
 as its own root. Copilot's `.github/agents/` discovery resolves per opened workspace
 root.
 
 **Fix:** Close the current window. `File > Open Folder...` and select
-`lab-context-lifecycle/` itself, not its parent.
+`context-engineering-part-2/` itself, not its parent.
 
 ### `sepa-investigator` makes the edit anyway when asked to
 
@@ -132,7 +132,7 @@ at any time (`rm .workflow/state.json`).
 **Cause:** running from the wrong directory.
 
 **Fix:** every script does `cd "$(dirname "$0")/.." || exit 3` internally, but you still
-need to invoke them as `./scripts/<name>.sh` from the repo root (`lab-context-lifecycle/`),
+need to invoke them as `./scripts/<name>.sh` from the repo root (`context-engineering-part-2/`),
 not from inside `scripts/`.
 
 ### `context-for.sh` says "nothing has been promoted yet"

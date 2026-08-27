@@ -13,7 +13,7 @@ Record results in the table at the bottom and keep the completed copy with the r
 
 ## Part A — Automated (under 1 min)
 
-Run from the repo root (`lab-context-lifecycle/`), on a clean working tree:
+Run from the repo root (`context-engineering-part-2/`), on a clean working tree:
 
 ```bash
 bash docs/verify.sh
@@ -45,8 +45,8 @@ stops matching the runbook.
 
 Every stage from 4 onward depends on this.
 
-1. Open `lab-context-lifecycle/` itself as a VS Code folder — not the parent
-   `context_engineering_part2/`.
+1. Open `context-engineering-part-2/` itself as a VS Code folder — not a parent
+   directory.
 2. Open the chat mode dropdown. Confirm **SEPA Investigator**, **SEPA Implementer**, and
    **SEPA Reviewer** all appear.
 3. In a chat, type `#` and confirm the four skills (`context-map`, `context-run`,

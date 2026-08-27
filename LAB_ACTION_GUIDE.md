@@ -45,7 +45,7 @@ mvn clean test
 
 Expected: `BUILD SUCCESS`, `Tests run: 5, Failures: 0`.
 
-Open this folder (`lab-context-lifecycle/`) as its own VS Code window — not as a subfolder
+Open this folder (`context-engineering-part-2/`) as its own VS Code window — not as a subfolder
 of anything else. Copilot's agent, skill, and hook discovery resolves per workspace root,
 and this lab ships its own `.github/agents/`, `.github/skills/`, and `.github/hooks/`.
 
@@ -709,7 +709,7 @@ See `docs/TROUBLESHOOTING.md` for the full appendix. Quick pointers:
 
 | Symptom | Fix |
 |---|---|
-| Agents don't appear in the mode dropdown | Confirm you opened `lab-context-lifecycle/` itself as the VS Code workspace root, not a parent folder |
+| Agents don't appear in the mode dropdown | Confirm you opened `context-engineering-part-2/` itself as the VS Code workspace root, not a parent folder |
 | `context-for.sh` says "nothing has been promoted yet" | Run Stage 3.1 first — copy the example register |
 | `verify-change.sh` shows all four checks green before Stage 4 | Not expected — at clean baseline, `calculateFee(..., "SEPA")` returns `0`, which fails check 4 (`0 < 2.00`) by design. If you see all-green with no SEPA code, your working tree has drifted from baseline — run `git status` and `git log` |
 | `jshell` not found | It ships with JDK 17+; check `java -version` and that `jshell` is on `PATH` |

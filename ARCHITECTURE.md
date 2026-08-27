@@ -10,7 +10,7 @@ below was verified directly against source — nothing here is inferred or ideal
 ## 1. Repository layout
 
 ```
-lab-context-lifecycle/
+context-engineering-part-2/
 ├── LAB_ACTION_GUIDE.md          participant guide — the 7 stages
 ├── AGENTS.md                    portable instructions (Copilot + other agent tools)
 ├── pom.xml                      Java 17, JUnit 5, Mockito, PITest
@@ -21,7 +21,6 @@ lab-context-lifecycle/
 ├── config/fee-schedule.yaml     authoritative fee rates — the "wins the argument" source
 ├── docs/adr/ADR-0007-...md      a stale, never-superseded draft rate — the seeded conflict
 ├── docs/JIRA_TICKETS.md         MFIN-2088 — the lab's one ticket
-├── docs/FACILITATOR.md          timing, talking points, citation discipline
 ├── docs/VERIFICATION.md         pre-delivery checklist (automated + manual)
 ├── docs/TROUBLESHOOTING.md      fallbacks per stage
 ├── docs/verify.sh               Part A of VERIFICATION.md, automated
