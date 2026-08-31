@@ -23,9 +23,9 @@ bash docs/verify.sh
 |---|---|---|
 | A1 | Toolchain present | `java` ≥ 17, `mvn`, `jshell`, `jdeps`, `git` all resolve |
 | A2 | Baseline build and tests | `mvn clean test` → `BUILD SUCCESS`, `Tests run: 5, Failures: 0` |
-| A3 | `context-map.sh SEPA` correctness | Finds both `config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md`, and reports their disagreement |
+| A3 | `context-map.sh RTP` correctness | Finds both `config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md`, and reports their disagreement |
 | A4 | `authority.sh` correctness | Reports 3 grep hits / 0 bytecode references on `LegacyPaymentUtils`, verdict `FALSE POSITIVE` |
-| A5 | `verify-change.sh` correctness | Flags `fixtures/sepa-implementation.diff` as `FAIL` on "authoritative configuration respected," and clears to `PASS` once the amount-vs-computed-fee comparison is corrected |
+| A5 | `verify-change.sh` correctness | Flags `fixtures/rtp-implementation.diff` as `FAIL` on "authoritative configuration respected," and clears to `PASS` once the amount-vs-computed-fee comparison is corrected |
 
 A5 is the hard one this lab needs that a simpler lab wouldn't: it's not enough for the
 verifier to run, it has to actually distinguish the buggy implementation from the fixed
@@ -47,8 +47,8 @@ Every stage from 4 onward depends on this.
 
 1. Open `context-engineering-part-2/` itself as a VS Code folder — not a parent
    directory.
-2. Open the chat mode dropdown. Confirm **SEPA Investigator**, **SEPA Implementer**, and
-   **SEPA Reviewer** all appear.
+2. Open the chat mode dropdown. Confirm **RTP Investigator**, **RTP Implementer**, and
+   **RTP Reviewer** all appear.
 3. In a chat, type `#` and confirm the four skills (`context-map`, `context-run`,
    `context-package`, `verify-change`) are either auto-invoked when relevant or listed.
 
@@ -64,12 +64,12 @@ instructor-demonstrated rather than hands-on for this delivery.
 
 Stage 4 depends on this being real, not just described in the agent file.
 
-1. Select **SEPA Investigator**. Ask it to investigate MFIN-2088.
+1. Select **RTP Investigator**. Ask it to investigate MFIN-2088.
 2. Confirm it runs `context-map.sh` / `context-for.sh` rather than opening
    `PaymentService.java` in full.
 3. Ask it to "just make the edit yourself." Confirm it cannot — no `edit` tool offered,
    and it says so rather than attempting a workaround.
-4. Confirm it emits the `CONTEXT CONFLICT` block once it reaches the SEPA rate question,
+4. Confirm it emits the `CONTEXT CONFLICT` block once it reaches the RTP rate question,
    and does **not** write `.workflow/HANDOFF.md` before that's resolved.
 
 **Pass:** all four behaviors observed.
@@ -86,9 +86,9 @@ Superseded from a prior dry run) and re-test.
 Stage 5.1's entire lesson depends on this distinction being real in the product, not
 just asserted in the guide.
 
-1. In the chat that just discussed the SEPA implementation, switch mode to **SEPA
+1. In the chat that just discussed the RTP implementation, switch mode to **RTP
    Reviewer** without opening a new chat. Ask it to review the change.
-2. Separately, open a genuinely new chat, select **SEPA Reviewer**, and give it only the
+2. Separately, open a genuinely new chat, select **RTP Reviewer**, and give it only the
    curated package (diff + ticket + config).
 
 **Pass:** the mode-switch-only review shows some awareness of the prior conversation
@@ -101,7 +101,7 @@ whether you can demonstrate the failure mode live.
 
 ### B4 — The bounded loop detects thrashing and clears on the real fix
 
-1. `git apply fixtures/sepa-implementation.diff`
+1. `git apply fixtures/rtp-implementation.diff`
 2. `./scripts/loop.sh reset`
 3. `VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check` — expect exit 1.
 4. Run the identical command again with no code change — expect exit 4 (thrashing).
@@ -130,7 +130,7 @@ Reference figures measured while building this lab, for orientation only:
 | | Expensive | Compressed |
 |---|---|---|
 | Stage 2 — `mvn test` output | 45 lines (this small, cached-dependency repo) | 6-line digest |
-| Stage 2 — repo search for "SEPA" | 11 raw hits | 3 shown, deduped, with a rate cross-check |
+| Stage 2 — repo search for "RTP" | 11 raw hits | 3 shown, deduped, with a rate cross-check |
 | Stage 1 — `PaymentService.java` outline | 284-line file | 17-line outline |
 
 A real project's raw `mvn test` runs far longer than 45 lines — this repo's small size
@@ -162,7 +162,7 @@ absolute count, is the teachable delta.
 ## Standing risks
 
 - **Line numbers and the fixture diff are hardcoded to the current
-  `PaymentService.java`.** Any edit to that file invalidates `fixtures/sepa-implementation.diff`
+  `PaymentService.java`.** Any edit to that file invalidates `fixtures/rtp-implementation.diff`
   and Stage 1's line-number references. A5 and A3 catch most of this; a full re-run of
   Part A after any source edit is still required.
 - **`config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md`'s Status field**

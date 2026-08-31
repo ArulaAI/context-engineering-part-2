@@ -6,7 +6,7 @@
 #
 # Exits non-zero if any check fails, so it can be wired into CI.
 #
-# A5 is mutating: it applies fixtures/sepa-implementation.diff, checks verify-change.sh's
+# A5 is mutating: it applies fixtures/rtp-implementation.diff, checks verify-change.sh's
 # verdict, fixes the bug in place, checks again, then reverts the working tree via git
 # checkout. It refuses to run at all if the tree is not clean beforehand, so it never
 # discards real work.
@@ -48,16 +48,17 @@ if [ -n "$(git status --porcelain -uno 2>/dev/null)" ]; then
   exit 1
 fi
 MVN_OUT=$(mvn -q clean test 2>&1)
-if echo "$MVN_OUT" | grep -q "BUILD FAILURE\|ERROR.*COMPILATION"; then
-  bad "mvn clean test did not succeed"
+MVN_RC=$?
+if [ "$MVN_RC" -ne 0 ]; then
+  bad "mvn clean test did not succeed (exit ${MVN_RC})"
   echo "$MVN_OUT" | grep -E "ERROR" | head -5 | sed 's/^/        /'
 else
   ok "mvn clean test succeeded"
 fi
 SUREFIRE="target/surefire-reports"
 if [ -d "$SUREFIRE" ]; then
-  RUN=$(grep -ho 'tests="[0-9]*"' "$SUREFIRE"/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo 0)
-  FAILURES=$(grep -ho 'failures="[0-9]*"' "$SUREFIRE"/*.xml 2>/dev/null | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo 0)
+  RUN=$(grep -ho 'tests="[0-9]*"' "$SUREFIRE"/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
+  FAILURES=$(grep -ho 'failures="[0-9]*"' "$SUREFIRE"/*.xml 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
   if [ "${RUN:-0}" -eq 5 ] && [ "${FAILURES:-1}" -eq 0 ]; then
     ok "5 tests run, 0 failures"
   else
@@ -70,12 +71,12 @@ fi
 # ---------------------------------------------------------------- A3 context-map
 echo ""
 echo "A3  context-map.sh correctness"
-MAP=$(./scripts/context-map.sh SEPA 2>/dev/null)
+MAP=$(./scripts/context-map.sh RTP 2>/dev/null)
 if echo "$MAP" | grep -q "config/fee-schedule.yaml"; then ok "finds config/fee-schedule.yaml"
-else bad "did not find config/fee-schedule.yaml for keyword SEPA"; fi
+else bad "did not find config/fee-schedule.yaml for keyword RTP"; fi
 if echo "$MAP" | grep -q "docs/adr/ADR-0007-fee-schedule.md"; then ok "finds docs/adr/ADR-0007-fee-schedule.md"
-else bad "did not find docs/adr/ADR-0007-fee-schedule.md for keyword SEPA"; fi
-if echo "$MAP" | grep -q "both mention SEPA"; then ok "reports the config/ADR disagreement"
+else bad "did not find docs/adr/ADR-0007-fee-schedule.md for keyword RTP"; fi
+if echo "$MAP" | grep -q "both mention RTP"; then ok "reports the config/ADR disagreement"
 else bad "did not report the config/ADR disagreement — has ADR-0007 been marked Superseded already?"; fi
 
 # ---------------------------------------------------------------- A4 authority
@@ -99,10 +100,10 @@ cleanup_a5() {
 }
 trap cleanup_a5 EXIT
 
-if ! git apply --check fixtures/sepa-implementation.diff 2>/dev/null; then
-  bad "fixtures/sepa-implementation.diff does not apply cleanly to baseline"
+if ! git apply --check fixtures/rtp-implementation.diff 2>/dev/null; then
+  bad "fixtures/rtp-implementation.diff does not apply cleanly to baseline"
 else
-  git apply fixtures/sepa-implementation.diff
+  git apply fixtures/rtp-implementation.diff
   mvn -B -q test-compile >/dev/null 2>&1
   BUGGY=$(./scripts/verify-change.sh 2>&1)
   if echo "$BUGGY" | grep -q "VERDICT: FAIL" && echo "$BUGGY" | grep -q "authoritative configuration respected"; then
@@ -113,26 +114,11 @@ else
   fi
 
   # Apply the fix in place: compare the computed fee, not the raw amount.
-  # No Python: this is an exact two-line replacement at a known anchor, so a
-  # small awk pass (write to a temp file, then move it back) is enough.
+  # The awk program lives in fixtures/rtp-correct.awk (facilitator fixture,
+  # not learner-facing) to avoid inlining the correct implementation here.
   FEE_JAVA="src/main/java/com/meridian/payments/PaymentService.java"
   FEE_JAVA_TMP="$(mktemp)"
-  awk '
-    $0 == "            if (amount.compareTo(BigDecimal.valueOf(2.00)) >= 0) {" {
-      print "            BigDecimal sepaFee = amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);"
-      print "            if (sepaFee.compareTo(BigDecimal.valueOf(2.00)) >= 0) {"
-      found = 1
-      skipnext = 1
-      next
-    }
-    skipnext == 1 {
-      print "                return sepaFee;"
-      skipnext = 0
-      next
-    }
-    { print }
-    END { exit (found == 1) ? 0 : 1 }
-  ' "$FEE_JAVA" > "$FEE_JAVA_TMP"
+  awk -f fixtures/rtp-correct.awk "$FEE_JAVA" > "$FEE_JAVA_TMP"
   AWK_RC=$?
   if [ "$AWK_RC" -eq 0 ]; then
     mv "$FEE_JAVA_TMP" "$FEE_JAVA"

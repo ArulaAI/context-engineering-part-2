@@ -37,7 +37,7 @@ if [ -n "$HITS" ]; then
 else
   N=0
 fi
-echo "    => ${N} hit(s)  ::  reads as A LIVE DEPENDENCY"
+echo "    => ${N} hit(s)  ::  textual presence detected"
 echo
 
 # ── tier 1 · bytecode ───────────────────────────────────────────────────────
@@ -55,13 +55,14 @@ echo
 # ── verdict ─────────────────────────────────────────────────────────────────
 if [ "$N" -gt 0 ] && [ "$D" -eq 0 ]; then
   cat <<EOF
-VERDICT: the search result is a FALSE POSITIVE.
+VERDICT: no compiled dependency detected.
 
-  ${N} textual hits, 0 bytecode dependencies. The import is dead and the rest
-  are comments. The duplication is copy-paste, not a call — so "remove the
-  dependency" is the wrong ticket. The compiler disproved the search for free.
+  ${N} textual reference(s), 0 bytecode dependencies.
+  No compiled dependency from ${NAME} to ${SYMBOL}.
 
-  A model asked the same question reads the same ${N} lines and agrees with grep.
+  Inspect the ${N} textual reference(s) separately before classifying their
+  role — they may be imports, comments, string literals, or same-package
+  usage that jdeps does not distinguish from absence.
 EOF
   exit 0
 elif [ "$D" -gt 0 ]; then

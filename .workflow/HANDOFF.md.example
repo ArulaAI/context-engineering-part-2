@@ -1,8 +1,8 @@
-objective: Implement SEPA fee per MFIN-2088.
+objective: Implement RTP fee per MFIN-2088.
 
 completed_investigation: >
-  Ran context-map.sh SEPA and context-for.sh calculateFee-sepa. Found two disagreeing
-  sources for the SEPA rate: config/fee-schedule.yaml (0.35%, EUR 2.00 minimum) and
+  Ran context-map.sh RTP and context-for.sh calculateFee-rtp. Found two disagreeing
+  sources for the RTP rate: config/fee-schedule.yaml (0.35%, USD 2.00 minimum) and
   docs/adr/ADR-0007-fee-schedule.md (0.30% flat, no minimum, Status: Proposed, never
   marked Superseded).
 
@@ -34,8 +34,8 @@ do_not_change:
 
 CONTEXT CONFLICT
 
-Source A: config/fee-schedule.yaml          — SEPA 0.35% + EUR 2.00 minimum (committed)
-Source B: docs/adr/ADR-0007-fee-schedule.md — SEPA 0.30% flat, no minimum (Status: Proposed)
+Source A: config/fee-schedule.yaml          — RTP 0.35% + USD 2.00 minimum (committed)
+Source B: docs/adr/ADR-0007-fee-schedule.md — RTP 0.30% flat, no minimum (Status: Proposed)
 
 No explicit supersession found.
 

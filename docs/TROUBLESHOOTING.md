@@ -17,13 +17,13 @@ root.
 **Fix:** Close the current window. `File > Open Folder...` and select
 `context-engineering-part-2/` itself, not its parent.
 
-### `sepa-investigator` makes the edit anyway when asked to
+### `rtp-investigator` makes the edit anyway when asked to
 
 **Cause:** either a Copilot build where custom-agent tool restrictions aren't enforced,
 or the agent file wasn't picked up and a general-purpose mode answered instead.
 
 **Fix:** Confirm which agent actually responded (the mode indicator in the chat header).
-If it really was `sepa-investigator` and it still edited, this is a build-specific gap —
+If it really was `rtp-investigator` and it still edited, this is a build-specific gap —
 say so in delivery. Manual fallback: run investigation and implementation in two
 separate chat windows, and treat "don't paste implementation instructions into the
 investigation window" as the enforced boundary instead of a missing tool.
@@ -45,7 +45,7 @@ back to `**Status:** Proposed`, then re-commit.
 
 **Cause:** the handoff auto-approval mechanism isn't enforced on this build.
 
-**Fix:** Run the approval as a spoken gate: nobody proceeds to `sepa-implementer` until a
+**Fix:** Run the approval as a spoken gate: nobody proceeds to `rtp-implementer` until a
 person has read `.workflow/HANDOFF.md` aloud and said "approved." Same lesson, no
 dependency on the feature.
 
@@ -85,7 +85,7 @@ JRE-only installs omit it.
 **Fix:** `which jshell`. If missing, install a full JDK 17+ (not a JRE-only distribution)
 and confirm `java -version` and `jshell` both resolve before the session.
 
-### `verify-change.sh` reports all four checks green with no SEPA code implemented
+### `verify-change.sh` reports all four checks green with no RTP code implemented
 
 **Cause:** the working tree has drifted from the shipped baseline (a stray file, an
 already-applied fixture, or an already-fixed implementation left over from a prior dry
@@ -140,8 +140,8 @@ not from inside `scripts/`.
 **Cause:** `.context/context-register.yaml` doesn't exist — this is the honest answer
 before Stage 3.1.
 
-**Fix:** `cp .context/context-register.yaml.example .context/context-register.yaml`, or
-build your own from scratch following `.context/README.md`'s required keys.
+**Fix:** `cp .context/context-register.template.yaml .context/context-register.yaml` and
+fill it in following `.context/README.md`'s required keys.
 
 ### `context-for.sh` produces a garbled or empty package on a hand-edited register
 
@@ -149,10 +149,10 @@ build your own from scratch following `.context/README.md`'s required keys.
 `.context/context-register.yaml` with a plain `awk` state machine, deliberately, since
 this lab's audience is Java engineers who won't reliably have Python installed. That
 parser only understands the exact flat shape in
-`.context/context-register.yaml.example`: two levels of nesting, one scalar per line,
+`.context/context-register.template.yaml`: two levels of nesting, one scalar per line,
 and a multi-line block scalar only on `objective`'s `>`. A hand-edited register that
 drifts from that shape (wrong indentation under a folded block, a nested list, a value
 that spans multiple lines anywhere else) will silently misparse rather than error clearly.
 
-**Fix:** diff your register against `.context/context-register.yaml.example`'s
+**Fix:** diff your register against `.context/context-register.template.yaml`'s
 structure, not just its content, and fix indentation to match exactly.

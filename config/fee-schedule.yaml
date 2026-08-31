@@ -13,8 +13,8 @@ wire_percent: 0.0025          # WIRE — 0.25%
 ach_flat_usd: 0.25            # ACH — flat $0.25
 swift_percent: 0.005          # SWIFT — 0.5%
 swift_flat_usd: 15.00         # SWIFT — plus $15 flat
-sepa_percent: 0.0035          # SEPA — 0.35% (new, MFIN-2088)
-sepa_minimum_eur: 2.00        # SEPA — EUR 2.00 minimum, applied to the COMPUTED FEE, not the raw amount
+rtp_percent: 0.0035           # RTP — 0.35% (new, MFIN-2088)
+rtp_minimum_usd: 2.00         # RTP — USD 2.00 minimum
 
 # Retired. Never current. Never cite.
 # LegacyPaymentUtils.calculateFee() still contains a hardcoded 1% WIRE rate and 2014 FX

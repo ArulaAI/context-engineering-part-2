@@ -2,7 +2,7 @@
 name: context-package
 description: Build a task-specific context package (objective, relevant files, applicable verified facts, authoritative config, constraints, required tests, open questions) from already-promoted facts in .context/context-register.yaml. Use when starting a new work unit that has verified facts recorded from earlier investigation. Returns the package, not a re-derivation of the facts.
 context: fork
-disable-model-invocation: false
+disable-model-invocation: true
 ---
 
 # Context Package
@@ -13,7 +13,7 @@ decision.
 
 ## Input contract
 
-- A work-unit name, e.g. `calculateFee-sepa`
+- A work-unit name, e.g. `calculateFee-rtp`
 - `.context/context-register.yaml` must already exist (create it in Stage 3 before
   using this skill)
 

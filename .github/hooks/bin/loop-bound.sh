@@ -6,7 +6,11 @@
 # all once the loop has said STOP, instead of trusting it to comply.
 #
 # Script-level bound  = the agent is told to stop.
-# Hook-level bound    = the agent cannot proceed.
+# Hook-level bound    = the agent cannot proceed via the standard edit/write
+#                        path. Note: this hook does not gate runCommands/terminal
+#                        tools — a shell command could still mutate the repo.
+#                        That is a known gap, not an oversight: gating arbitrary
+#                        shell commands requires parsing intent, not just tool name.
 #
 # Same rule, two rungs of the enforcement ladder. Everything still works without
 # this hook — that is deliberate, because hook availability is not guaranteed.

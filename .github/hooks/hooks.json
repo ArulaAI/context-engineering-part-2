@@ -1,6 +1,6 @@
 {
   "//": [
-    "Meridian — deterministic gates for the SEPA fee-change workflow (MFIN-2088).",
+    "Meridian — deterministic gates for the RTP fee-change workflow (MFIN-2088).",
     "",
     "THE ONE THING THAT WILL CATCH YOU OUT:",
     "VS Code ignores the 'matcher' field. Every hook below fires on EVERY tool",
@@ -10,8 +10,8 @@
     "",
     "NOTHING HERE IS LOAD-BEARING. The same rules are enforced one rung lower by",
     "scripts/loop.sh and scripts/verify-change.sh, which work with no hook support",
-    "at all. Hooks upgrade 'the agent is told to stop' into 'the agent cannot",
-    "proceed' — that is the whole difference, and it is worth a lot."
+    "at all. Hooks block the standard edit/write path after the bound —",
+    "runCommands can still mutate, which is a known gap, not an oversight."
   ],
   "hooks": {
     "SessionStart": [

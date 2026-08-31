@@ -18,14 +18,14 @@ context-engineering-part-2/
 ├── src/main/java/com/meridian/payments/     ← the application under study (§2)
 ├── src/test/java/com/meridian/payments/     ← the one test file, deliberately incomplete
 │
-├── config/fee-schedule.yaml     authoritative fee rates — the "wins the argument" source
-├── docs/adr/ADR-0007-...md      a stale, never-superseded draft rate — the seeded conflict
+├── config/fee-schedule.yaml     fee-rate configuration
+├── docs/adr/ADR-0007-...md      fee schedule ADR — rates here differ from config (the seeded conflict)
 ├── docs/JIRA_TICKETS.md         MFIN-2088 — the lab's one ticket
 ├── docs/VERIFICATION.md         pre-delivery checklist (automated + manual)
 ├── docs/TROUBLESHOOTING.md      fallbacks per stage
 ├── docs/verify.sh               Part A of VERIFICATION.md, automated
 │
-├── fixtures/sepa-implementation.diff   the seeded bug, as a patch — applied in Stage 4
+├── fixtures/rtp-implementation.diff   the seeded bug, as a patch — applied in Stage 4
 │
 ├── scripts/                     ← the lab tooling (§3)
 ├── .github/agents/               3 restricted-capability Copilot agents (§3)
@@ -34,9 +34,17 @@ context-engineering-part-2/
 ├── .github/instructions/java.instructions.md   path-scoped Java rules
 │
 ├── .context/                    the promoted-facts register (Stage 3)
+│   ├── context-register.template.yaml   the Stage 3 starting point — blank, participant-filled
+│   └── context-register.yaml.example    reference only: what a COMPLETE register looks
+│                                          like by the END of the lab (Stage 4.4's decisions
+│                                          included) — not a Stage 3 copy source
 ├── .workflow/                    handoff + loop state, on disk not in chat (Stage 4/5)
 └── outputs/stage-readings.template.md   participant's own measurements
 ```
+
+This repository now teaches its seven-stage lifecycle through **eight** stages, not
+seven — Stage 7 ("Apply Without the Harness") was added as a mandatory, unaided transfer
+checkpoint. It deliberately uses none of the tooling in §3 below; see §4's closing note.
 
 ---
 
@@ -171,9 +179,9 @@ graph LR
     SK4 --> VCS
 
     subgraph agents[".github/agents/ — restricted tools"]
-        AG1["sepa-investigator<br/>search, read, runCommands<br/>NO edit"]
-        AG2["sepa-implementer<br/>search, read, edit, runCommands"]
-        AG3["sepa-reviewer<br/>search, read, runCommands<br/>NO edit"]
+        AG1["rtp-investigator<br/>search, read<br/>NO edit, NO runCommands"]
+        AG2["rtp-implementer<br/>search, read, edit, runCommands"]
+        AG3["rtp-reviewer<br/>search, read, runCommands<br/>NO edit"]
     end
     AG1 -.->|invokes| SK1
     AG1 -.->|invokes| SK3
@@ -198,10 +206,10 @@ graph LR
     class H1,H2,H3 hook
 ```
 
-**Why `sepa-investigator` has no `edit` in its tool list isn't a convention — it's the
+**Why `rtp-investigator` has no `edit` in its tool list isn't a convention — it's the
 whole point of Stage 4.** An instruction not to edit is a request the model could ignore
 mid-task. A tool that's absent from the frontmatter is a capability that doesn't exist.
-`sepa-reviewer` is restricted the same way, for the same reason, one stage later.
+`rtp-reviewer` is restricted the same way, for the same reason, one stage later.
 
 ---
 
@@ -218,32 +226,33 @@ sequenceDiagram
     participant ADR as docs/adr/ADR-0007
     participant Register as .context/<br/>context-register.yaml
     participant Package as context-for.sh<br/>output
-    participant Investigator as sepa-investigator
+    participant Investigator as rtp-investigator
     participant Handoff as .workflow/HANDOFF.md
     participant Human
-    participant Implementer as sepa-implementer
+    participant Implementer as rtp-implementer
     participant Verify as verify-change.sh
     participant RepairLoop as loop.sh
-    participant Reviewer as sepa-reviewer<br/>(new chat)
+    participant Reviewer as rtp-reviewer<br/>(new chat)
 
-    Ticket->>Map: Stage 1 — "SEPA"
+    Ticket->>Map: Stage 1 — "RTP"
     Map->>Config: finds the rate
     Map->>ADR: finds a DIFFERENT rate
     Map-->>Investigator: routing table, not an answer
 
-    Note over Register: Stage 3 — promote only<br/>verified facts + decisions
+    Note over Register: Stage 3 — participant fills in<br/>verified facts + unknowns from the TEMPLATE<br/>(decisions stays empty)
     Register->>Package: Stage 3 — filtered by work-unit tag
 
     Package->>Investigator: Stage 4.1 — search+read only
     Investigator->>Human: CONTEXT CONFLICT — config vs ADR<br/>(cannot resolve itself: no edit tool)
     Human->>ADR: marks Status: Superseded (a real file edit)
+    Human->>Register: Stage 4.4 — participant adds the two<br/>decisions: entries to their OWN register,<br/>only now, after the human step
     Human->>Investigator: conflict resolved
     Investigator->>Handoff: writes handoff (only after the decision)
 
     Handoff->>Implementer: Stage 4.4 — handoff only,<br/>NOT the investigation chat
-    Implementer->>Implementer: git apply fixtures/sepa-implementation.diff<br/>(the seeded bug)
+    Implementer->>Implementer: git apply fixtures/rtp-implementation.diff<br/>(the seeded bug)
     Implementer->>Verify: Stage 5.2
-    Verify--xImplementer: FAIL — amount compared to 2.00,<br/>not the computed fee
+    Verify--xImplementer: FAIL — check 4 mismatch<br/>(expected vs actual fee value)
     Implementer->>RepairLoop: Stage 5.3 — VERIFY_CMD=verify-change.sh
     RepairLoop--xImplementer: exit 4 — thrashing (identical verdict)
     Implementer->>Implementer: fix: compare computed fee
@@ -251,14 +260,21 @@ sequenceDiagram
     RepairLoop->>Implementer: exit 0 — DONE
 
     Handoff->>Reviewer: Stage 5.1 — diff + ticket + config ONLY,<br/>no inherited reasoning
-    Reviewer->>Reviewer: computes calculateFee(100.00,"SEPA")<br/>by hand — catches the same bug
+    Reviewer->>Reviewer: computes calculateFee(100.00,"RTP")<br/>by hand — catches the same bug
 ```
 
 **The two verification paths in Stage 5 are deliberately redundant, not sequential.**
-`sepa-reviewer` catches the bug by reasoning from a curated package; `verify-change.sh`
+`rtp-reviewer` catches the bug by reasoning from a curated package; `verify-change.sh`
 catches the identical bug by actually calling the compiled method through `jshell`. The
 lab pairs them because a comment can correctly describe a rule while the code next to it
 violates it — recall isn't adherence, so neither check substitutes for the other.
+
+**Stage 7 has no box in this diagram, on purpose.** It runs on the same repository —
+`PaymentService.java`'s inline FX-conversion duplication (Step 3 of `processPayment()`)
+versus the unused, correctly-implemented `CurrencyConverter` — but with none of `scripts/`,
+`.github/agents/`, or `.github/skills/` available. Everything above this line is the
+worked example; Stage 7 is the check that the pattern, not the tooling, is what actually
+transferred. See `LAB_ACTION_GUIDE.md` Stage 7 for the exercise and its worked comparison.
 
 ---
 

@@ -13,7 +13,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 3
 
-KEYWORD="${1:-SEPA}"
+KEYWORD="${1:-RTP}"
 
 hitcount() {
   # $1 = path/glob description (for the summary line), remaining args = grep target(s)
@@ -29,10 +29,23 @@ SRC_HITS="$(hitcount src/main/java)"
 CONFIG_HITS="$(hitcount config)"
 ADR_HITS="$(hitcount docs/adr)"
 TICKET_HITS="$( [ -f docs/JIRA_TICKETS.md ] && grep -c "$KEYWORD" docs/JIRA_TICKETS.md 2>/dev/null || echo 0 )"
+TICKET_HITS="${TICKET_HITS##*$'\n'}"  # strip any multiline; keep last number
 TEST_HITS="$(hitcount src/test/java)"
+
+TOTAL_EVIDENCE=$((SRC_HITS + CONFIG_HITS + ADR_HITS + TICKET_HITS + TEST_HITS))
 
 echo "CONTEXT MAP — \"${KEYWORD}\""
 echo "====================================================="
+
+if [ "$TOTAL_EVIDENCE" -eq 0 ]; then
+  echo "src/main: 0 file(s).  config/: 0 file(s).  docs/adr: 0 file(s).  docs/JIRA_TICKETS.md: 0 mention(s)."
+  echo ""
+  echo "No routing evidence found for \"${KEYWORD}\"."
+  echo "This mapper is a Meridian worked-example utility; inspect the repo"
+  echo "topology before adapting it to another domain."
+  exit 0
+fi
+
 printf "%-26s %s\n" "Affected domains" "src/main/java/com/meridian/payments  (fee logic — PaymentService)"
 
 if [ "$SRC_HITS" -eq 0 ]; then

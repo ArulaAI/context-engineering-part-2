@@ -1,32 +1,30 @@
 # Meridian Payments — Agent Instructions (Context Lifecycle Lab)
 
 Java 17 payments platform. Maven build. JUnit 5 + Mockito. This lab's task is MFIN-2088
-(SEPA transfer fee support) — see `docs/JIRA_TICKETS.md`.
+— see `docs/JIRA_TICKETS.md`.
 
 ## Build and test
 
 ```
 mvn clean compile          # must pass before any change is considered done
 mvn test                   # baseline is green; keep it green
-./scripts/verify-change.sh # the task-specific deterministic verifier — prefer this
 ```
 
 ## Non-negotiable business rules
 
-- Current fee schedule (source of truth: `config/fee-schedule.yaml`): **WIRE 0.25%,
-  ACH flat $0.25, SWIFT 0.5% + $15, SEPA 0.35% with a EUR 2.00 minimum applied to the
-  computed fee, not the raw transfer amount.**
-- `LegacyPaymentUtils` is retired. It carries a 1% WIRE rate and 2014 FX rates. Do not
-  call it, copy from it, or cite its values as current.
-- `docs/adr/ADR-0007-fee-schedule.md` is a stale, never-finalized draft (SEPA 0.30%
-  flat, no minimum). `config/fee-schedule.yaml` supersedes it. Do not implement from
-  the ADR.
+- When sources disagree about a value, check each source's provenance (commit history,
+  status fields, ticket references) before assuming either is current. Do not implement
+  from an unverified source — surface the conflict and escalate.
+- Do not invent or copy rates from stale sources. Any constants introduced into fee
+  logic must be traceable to the verified committed fee schedule.
 - Currency conversion routes through `CurrencyConverter`. Never inline an exchange rate.
 - Never log account IDs, card numbers, CVV, passwords, session tokens, or `requestedBy`.
 
 ## Answering questions about this codebase
 
-Prefer the narrowest, most authoritative primitive that can answer:
+These primitives are for general repository exploration. When a lab stage explicitly
+says "do not use scripts, agents, or skills" — for example, Stage 0's first-pass audit
+or Stage 7's unaided capstone — that instruction overrides this table for that stage.
 
 | Question | Use |
 |---|---|
@@ -36,8 +34,6 @@ Prefer the narrowest, most authoritative primitive that can answer:
 | What did the last test run show? | `./scripts/context-run.sh test` |
 | What changed? | `./scripts/context-run.sh diff` |
 | Where is a term used across the repo? | `./scripts/context-run.sh search <term>` |
-| What's already been verified for this work unit? | `./scripts/context-for.sh <work-unit>` |
-| Is the SEPA implementation actually correct? | `./scripts/verify-change.sh` |
 
 Do not attach whole files to answer questions the above can answer. Do not reach for a
 broad workspace search unless the question is genuinely broad and you cannot name a

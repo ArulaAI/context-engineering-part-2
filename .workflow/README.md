@@ -5,7 +5,7 @@ payloads.
 
 | File | Written by | Read by |
 |---|---|---|
-| `HANDOFF.md` | `sepa-investigator` (Stage 4) | the human, then `sepa-implementer` |
+| `HANDOFF.md` | human (from `rtp-investigator` output, Stage 4) | the human, then `rtp-implementer` |
 | `state.json` | `scripts/loop.sh` | `scripts/loop.sh`, the agent running the loop |
 
 Two reasons this matters:

@@ -6,8 +6,8 @@ index 08cb4e3..44d8b54 100644
              return BigDecimal.valueOf(0.25);
          } else if (paymentType.equals("SWIFT")) {
              return amount.multiply(BigDecimal.valueOf(0.005)).add(BigDecimal.valueOf(15.00)).setScale(2, RoundingMode.HALF_UP);
-+        } else if (paymentType.equals("SEPA")) {
-+            // SEPA: 0.35% fee with a EUR 2.00 minimum fee (MFIN-2088)
++        } else if (paymentType.equals("RTP")) {
++            // RTP: 0.35% fee with a USD 2.00 minimum fee (MFIN-2088)
 +            if (amount.compareTo(BigDecimal.valueOf(2.00)) >= 0) {
 +                return amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);
 +            }

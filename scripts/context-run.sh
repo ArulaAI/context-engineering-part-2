@@ -31,7 +31,11 @@ if [ "$SUBCOMMAND" = "test" ]; then
   trap 'rm -f "$RAW"' EXIT
 
   mvn -B test >"$RAW" 2>&1
+  MVN_RC=$?
   RAW_LINES="$(wc -l < "$RAW" | tr -d ' ')"
+
+  HAVE_REPORTS=0
+  ls target/surefire-reports/*.txt >/dev/null 2>&1 && HAVE_REPORTS=1
 
   PASS_TOTAL="$(grep -ho 'Tests run: [0-9]\+' target/surefire-reports/*.txt 2>/dev/null \
       | awk -F': ' '{s+=$2} END {print s+0}')"
@@ -41,6 +45,58 @@ if [ "$SUBCOMMAND" = "test" ]; then
       | awk -F': ' '{s+=$2} END {print s+0}')"
   BAD_TOTAL=$((FAIL_TOTAL + ERR_TOTAL))
   GOOD_TOTAL=$((PASS_TOTAL - BAD_TOTAL))
+
+  # R1 — make Maven exit code authoritative; prevent stale-report false-green.
+  #
+  # Three early-exit guards, in order of severity:
+  #
+  # (a) Maven failed AND stale reports are on disk.
+  #     The reports we just parsed belong to a prior successful run; reading
+  #     them would produce a false PASS.  Bail out immediately.
+  if [ "$MVN_RC" -ne 0 ] && [ "$HAVE_REPORTS" -eq 1 ]; then
+    echo "TEST SUMMARY"
+    echo "BUILD FAILED — mvn -B test exited ${MVN_RC} (stale surefire reports on disk ignored)"
+    echo ""
+    echo "last 20 lines of \`mvn -B test\` output:"
+    tail -20 "$RAW" | sed 's/^/  /'
+    echo ""
+    echo "NOISE REMOVED: n/a — build failed, stale reports not used"
+    exit 1
+  fi
+  #
+  # (b) Maven failed AND no reports exist at all.
+  #     Build or compile error before surefire even ran — also a hard failure.
+  if [ "$MVN_RC" -ne 0 ] && [ "$HAVE_REPORTS" -eq 0 ]; then
+    echo "TEST SUMMARY"
+    echo "BUILD FAILED — mvn -B test exited ${MVN_RC} before producing any surefire report"
+    echo ""
+    echo "last 20 lines of \`mvn -B test\` output:"
+    tail -20 "$RAW" | sed 's/^/  /'
+    echo ""
+    echo "NOISE REMOVED: n/a — build did not complete, nothing to compress"
+    exit 1
+  fi
+  #
+  # (c) Maven exited 0 but no reports were generated.
+  #     Surefire was skipped or a plugin misconfiguration suppressed output;
+  #     treat as failure so "0 tests / 0 failures" is never a silent green.
+  if [ "$MVN_RC" -eq 0 ] && [ "$HAVE_REPORTS" -eq 0 ]; then
+    echo "TEST SUMMARY"
+    echo "BUILD FAILED — mvn -B test exited 0 but produced no surefire reports (surefire skipped?)"
+    echo ""
+    echo "NOISE REMOVED: n/a — no reports to parse"
+    exit 1
+  fi
+  #
+  # (d) Reports exist but contain no parseable test data — covers zero-byte,
+  #     binary-garbage, or permission-denied files.
+  if [ "$PASS_TOTAL" -eq 0 ] && [ "$FAIL_TOTAL" -eq 0 ] && [ "$ERR_TOTAL" -eq 0 ]; then
+    echo "TEST SUMMARY"
+    echo "BUILD FAILED — surefire reports exist but contain no parseable test data"
+    echo ""
+    echo "NOISE REMOVED: n/a — reports unreadable"
+    exit 1
+  fi
 
   echo "TEST SUMMARY"
   echo "${GOOD_TOTAL} passed"
@@ -68,7 +124,7 @@ if [ "$SUBCOMMAND" = "test" ]; then
 
   echo "REGRESSION SIGNAL"
   if [ "$BAD_TOTAL" -eq 0 ]; then
-    echo "none — all fee-calculation tests (WIRE/ACH/SWIFT) unaffected"
+    echo "none — existing test suite remains green"
   else
     echo "$(printf '%s\n' "$FAILURE_BLOCK" | head -1) touches fee logic — check for a regression, not just a missing feature"
   fi
@@ -131,7 +187,7 @@ if [ "$SUBCOMMAND" = "search" ]; then
   TERM="${2:-}"
   [ -n "$TERM" ] || { echo "usage: context-run.sh search <term>" >&2; exit 3; }
 
-  RAW="$(grep -rn "$TERM" src/main config docs --include='*.java' --include='*.yaml' --include='*.md' 2>/dev/null)"
+  RAW="$(grep -rn "$TERM" src/main config docs/adr docs/JIRA_TICKETS.md --include='*.java' --include='*.yaml' --include='*.md' 2>/dev/null)"
   RAW_COUNT="$(printf '%s\n' "$RAW" | grep -c . || true)"
 
   DEDUPED="$(printf '%s\n' "$RAW" | grep -v -E '^\s*\*|//\s*$' | sort -u -t: -k1,1 | head -20)"

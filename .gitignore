@@ -7,3 +7,8 @@ journey/
 .workflow/state.json
 .workflow/HANDOFF.md
 .context/context-register.yaml
+
+# user-specific Claude Code config and orchestration artifacts
+.claude/
+.superpowers/
+dist/
