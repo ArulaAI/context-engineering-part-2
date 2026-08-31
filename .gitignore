@@ -11,3 +11,4 @@ journey/
 # user-specific Claude Code config and orchestration artifacts
 .claude/
 .superpowers/
+dist/
