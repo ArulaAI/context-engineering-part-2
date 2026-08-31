@@ -7,7 +7,8 @@ from it instead of from a re-read of the whole conversation.
 
 | File | Written by | Read by |
 |---|---|---|
-| `context-register.yaml` | you, in Stage 3 | `scripts/context-for.sh` |
+| `context-register.yaml` | you, in Stage 3 (from the template, filled with your own findings) | `scripts/context-for.sh` |
+| `context-register.template.yaml` | shipped with the lab | you, as your Stage 3 starting point — copy this to `context-register.yaml` and fill it in |
 
 `context-register.yaml` is a **deliberately flat YAML subset** — two levels of nesting
 max, one scalar per line, a `>` folded block only on `objective`. That's not a limitation
@@ -17,15 +18,14 @@ beyond what's already installed alongside a JDK and Maven — matching every oth
 in this lab's "no dependencies beyond what's already installed" rule.
 
 Required top-level keys: `objective`, `verified_facts`, `authoritative_sources`,
-`decisions`, `constraints`, `superseded_sources`, `unknowns`. See
-`context-register.yaml.example` for the exact shape, filled in for this lab's SEPA
-scenario.
+`decisions`, `constraints`, `superseded_sources`, `unknowns`. The template documents
+the required shape with guidance comments for each section.
 
 Each entry under `verified_facts` may carry an optional `applies_to: <work-unit-tag>`
 field. An entry without one is treated as global and included in every package
 `scripts/context-for.sh` builds; a tagged entry is included only when its tag matches
 the requested work unit.
 
-**`context-register.yaml` (without `.example`) is created live by you during Stage 3.**
+**`context-register.yaml` is created live by you during Stage 3.**
 It is not shipped — the empty state is the honest starting point, matching "nothing has
 been promoted yet."

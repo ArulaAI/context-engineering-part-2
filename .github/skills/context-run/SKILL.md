@@ -2,7 +2,7 @@
 name: context-run
 description: Run a noisy command (test suite, diff, repo search) through a compacting wrapper that returns a digest instead of raw output, with a stated noise-removed figure. Use whenever the alternative is pasting raw mvn test, git diff, or grep output into the conversation.
 context: fork
-disable-model-invocation: false
+disable-model-invocation: true
 ---
 
 # Context Run
@@ -34,9 +34,9 @@ introduction. No summary paragraph. No code.
   when this skill's wrapper can answer the same question.
 - If `context-run.sh search` reports a rate cross-check disagreement, say so explicitly
   — do not silently pick one of the two rates.
-- The current fee schedule is **WIRE 0.25%, ACH flat $0.25, SWIFT 0.5% + $15, SEPA
-  0.35% with a EUR 2.00 minimum** per `config/fee-schedule.yaml`. `LegacyPaymentUtils`
-  and `docs/adr/ADR-0007-fee-schedule.md`'s draft rate are never current.
+- `config/fee-schedule.yaml` is where current fee rates live — check it rather than
+  relying on memory, a comment, or a document. `LegacyPaymentUtils` is retired; confirm
+  any claimed dependency on it with `scripts/authority.sh` rather than a text match.
 
 If you were invoked as a subagent, this digest is the entire value you return — make it
 self-sufficient.

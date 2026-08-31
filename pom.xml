@@ -14,7 +14,7 @@
         source tree, so symbol-level context primitives (#usages, #symbolName)
         resolve, and so workspace indexing behaves as it would in production.
         The baseline compiles and its tests pass; the test suite is deliberately
-        incomplete so that Stage 2 has real coverage gaps to discover.
+        incomplete so that the lab has real coverage gaps to discover.
     </description>
 
     <properties>

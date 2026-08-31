@@ -12,7 +12,7 @@
   // Uncomment the block below if you want to demonstrate that search-match
   // snippets count toward the context window even when the matched file is
   // never opened. `docs/adr/` is a good candidate: once ADR-0007 is marked
-  // Superseded, there is no reason a search for "SEPA" should still surface it.
+  // Superseded, there is no reason a search for "RTP" should still surface it.
   //
   // "search.exclude": {
   //   "**/target/**": true
@@ -46,10 +46,9 @@
     "/^git\\s+(status|diff|log|show|apply)/": true,
     "/^(javap|jdeps|jshell)\\s/": true,
 
-    // There is no way on Copilot Chat to rewrite `mvn test` into the quiet
-    // recipe — you can only make the loud form fail so the quiet one is the
-    // path of least resistance. That gap between "requested" and "enforced"
-    // is Stage 2's whole point.
+    // This terminal-autoApprove fallback cannot rewrite the command. The hook
+    // layer can, but this lab deliberately denies instead of silently rewriting
+    // — that gap between "requested" and "enforced" is Stage 2's whole point.
     "/^mvn\\b.*\\b(test|compile|verify|install)\\b/": false,
 
     "rm": false
@@ -65,7 +64,15 @@
   "chat.editing.autoAcceptDelay": 0,
 
 
+  // --- Skills with context: fork require this setting -----------------------
+  "github.copilot.chat.skillTool.enabled": true,
+
   // Java niceties so #usages and symbol navigation behave during the lab.
   "java.configuration.updateBuildConfiguration": "automatic",
-  "files.trimTrailingWhitespace": true
+  "files.trimTrailingWhitespace": true,
+
+  // Enforce LF line endings in VS Code on Windows (complements .gitattributes).
+  // Without this, the editor writes CRLF, which breaks awk heredocs and POSIX
+  // scripts even before git checkout is involved.
+  "files.eol": "\n"
 }

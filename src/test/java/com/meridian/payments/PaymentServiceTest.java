@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
  * clean starting point — but several public methods on PaymentService have no coverage
  * at all, and processPayment() is only tested on its earliest validation branches.
  *
- * Finding those gaps is Stage 2's job. Do not fill them in by hand before you get there.
+ * Finding those gaps is the lab's job. Do not fill them in by hand before you get there.
  */
 class PaymentServiceTest {
 
@@ -77,7 +77,7 @@ class PaymentServiceTest {
         assertEquals(BigDecimal.ZERO, fee);
     }
 
-    // --- Deliberate gaps below this line. Stage 2 will find them. ---
+    // --- Deliberate gaps below this line. The lab will find them. ---
     //
     // Not covered anywhere in this file:
     //   getPaymentHistory(String, int)

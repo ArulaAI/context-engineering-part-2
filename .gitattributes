@@ -1,0 +1,7 @@
+# Enforce LF line endings on checkout for all platform-sensitive files.
+# Without this, Windows git (core.autocrlf=true) converts .sh and .yaml files
+# to CRLF, silently breaking awk heredocs and POSIX scripts.
+*.sh   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf

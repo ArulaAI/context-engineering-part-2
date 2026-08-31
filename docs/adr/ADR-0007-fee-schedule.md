@@ -1,4 +1,4 @@
-# ADR-0007 — SEPA Transfer Fee Schedule
+# ADR-0007 — RTP Transfer Fee Schedule
 
 **Status:** Proposed
 **Date:** 2026-03-11
@@ -6,13 +6,13 @@
 
 ## Context
 
-Meridian is evaluating adding SEPA Credit Transfer as a supported payment type for
-EU-domiciled accounts. Early discussion favored a simple flat-percentage fee with no
+Meridian is evaluating adding US Real-Time Payment (RTP) as a supported payment type for
+US-domiciled accounts. Early discussion favored a simple flat-percentage fee with no
 minimum, to keep the pricing model easy to explain to relationship managers.
 
 ## Decision (proposed)
 
-SEPA transfers will be charged **0.30% flat**, with **no minimum fee**.
+RTP transfers will be charged **0.30% flat**, with **no minimum fee**.
 
 ## Consequences
 

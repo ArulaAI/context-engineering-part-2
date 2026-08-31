@@ -7,11 +7,11 @@
 #   from stdin. A hook copied from a Claude Code example will appear to work and
 #   will silently gate the wrong things.
 #
-# What this gate can and cannot do:
-#   It can DENY. It cannot REWRITE. On Copilot Chat there is no way to turn
-#   `mvn test` into the quiet recipe automatically — you can only make the verbose
-#   form fail, so the quiet one is the path of least resistance. That gap between
-#   "requested" and "enforced" is the lesson.
+# What this gate does:
+#   It DENYs. PreToolUse hooks can also rewrite tool input (via updatedInput),
+#   but this lab deliberately denies rather than rewrites — a denial is auditable
+#   and makes the participant reach for the quiet recipe themselves, which is the
+#   lesson. That gap between "requested" and "enforced" is the teaching point.
 #
 # No Python: the hook payload's shape is fixed and known (a flat "tool_name"
 # string, a "command" or "commandLine" string one level down in "tool_input"),

@@ -2,7 +2,7 @@
 name: context-map
 description: Produce a routing table for where truth lives on a keyword or feature (affected domains, symbols, contracts, config, ADRs, tests, dependency bounds, ticket) before retrieving anything. Use when starting an unfamiliar task, before searching or reading source. Returns a routing table, not an answer.
 context: fork
-disable-model-invocation: false
+disable-model-invocation: true
 ---
 
 # Context Map
@@ -12,7 +12,7 @@ routing table is cheap on purpose so it isn't mistaken for the answer itself.
 
 ## Input contract
 
-- A keyword or feature name, e.g. `SEPA`
+- A keyword or feature name, e.g. `RTP`
 
 ## Workflow
 
@@ -34,9 +34,9 @@ introduction. No summary paragraph. No code.
 - **Never** treat the map as authoritative — it reports where sources exist, not which
   one is correct. Resolving a disagreement between sources is a separate step
   (`scripts/authority.sh`, or a human decision if no compiler check applies).
-- The current fee schedule is **WIRE 0.25%, ACH flat $0.25, SWIFT 0.5% + $15, SEPA
-  0.35% with a EUR 2.00 minimum** per `config/fee-schedule.yaml`. `LegacyPaymentUtils`
-  and `docs/adr/ADR-0007-fee-schedule.md`'s draft rate are never current.
+- `config/fee-schedule.yaml` is where current fee rates live — check it rather than
+  relying on memory, a comment, or a document. `LegacyPaymentUtils` is retired; confirm
+  any claimed dependency on it with `scripts/authority.sh` rather than a text match.
 
 If you were invoked as a subagent, this table is the entire value you return — make
 every row carry something the caller cannot get without you.

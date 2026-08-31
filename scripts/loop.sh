@@ -66,6 +66,21 @@ read_field() {
   sed -n "s/.*\"$1\": *\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p" "$STATE" | head -1
 }
 
+hash_verdict() {
+  # $1=text — prefers shasum, falls back to sha256sum, then cksum, so
+  # hashing never hard-fails for lack of one specific tool (some minimal
+  # Git-for-Windows installs lack shasum but have sha256sum). The hash is
+  # only ever compared to itself for equality, never parsed, so cksum's
+  # shorter numeric output is fine too.
+  if command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$1" | shasum | cut -c1-12
+  elif command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | cut -c1-12
+  else
+    printf '%s' "$1" | cksum | tr -d ' \n'
+  fi
+}
+
 case "${1:-check}" in
 
   reset)
@@ -89,7 +104,7 @@ esac
 [ -f "$STATE" ] || bash "$0" reset >/dev/null
 
 VERDICT="$(bash "$VERIFY_CMD" 2>&1)"; RC=$?
-HASH="$(printf '%s' "$VERDICT" | shasum | cut -c1-12)"
+HASH="$(hash_verdict "$VERDICT")"
 printf '%s' "$VERDICT" > "$LAST_VERDICT"
 
 ATTEMPTS="$(read_field attempts)"

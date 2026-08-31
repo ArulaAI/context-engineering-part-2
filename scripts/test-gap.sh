@@ -106,8 +106,7 @@ printf -- "--------------------------------------------------------------\n"
 printf "%d of %d public methods have no test referencing them.\n" "$uncovered" "$total"
 
 # ---------------------------------------------------------------- fee logic
-# Rate literals extended for this lab's SEPA scenario (MFIN-2088): 0.0035 (SEPA
-# percent) and 2.00 (SEPA minimum) alongside the original WIRE/ACH/SWIFT set.
+# Rate literals for fee-computation patterns in this repository.
 echo ""
 echo "=============================================================="
 echo " FEE LOGIC — every computation site in $MAIN_DIR"
@@ -115,7 +114,7 @@ echo "=============================================================="
 printf "%-52s %-6s %s\n" "FILE" "LINE" "EVIDENCE"
 printf -- "--------------------------------------------------------------\n"
 
-grep -rn -E 'calculateFee|0\.0025|0\.005|0\.015|0\.0035|2\.00|\bWIRE\b|\bACH\b|\bSWIFT\b|\bSEPA\b' "$MAIN_DIR" \
+grep -rn -E 'calculateFee|0\.0025|0\.005|0\.015|0\.0035|2\.00|\bWIRE\b|\bACH\b|\bSWIFT\b|\bRTP\b' "$MAIN_DIR" \
   --include='*.java' 2>/dev/null \
   | grep -v -E '^\s*\*|//\s*$' \
   | while IFS=: read -r file line content; do
@@ -127,7 +126,7 @@ echo ""
 echo "=============================================================="
 echo " FEE RATES FOUND IN SOURCE (these must agree with config/fee-schedule.yaml)"
 echo "=============================================================="
-grep -rn -E 'WIRE|SEPA' "$MAIN_DIR" --include='*.java' -A2 2>/dev/null \
+grep -rn -E 'WIRE|RTP' "$MAIN_DIR" --include='*.java' -A2 2>/dev/null \
   | grep -E 'multiply|BigDecimal\.valueOf|\* *0\.' \
   | sed 's/^/  /' || echo "  (none found)"
 

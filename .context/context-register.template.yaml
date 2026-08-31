@@ -1,0 +1,56 @@
+# context-register.yaml — TEMPLATE. Start here in Stage 3.
+#
+# This is the honest starting point: nothing has been promoted yet. Fill in each
+# section from what you actually verified in Stages 1-2 of your own run — not from
+# memory of what the lab's worked example showed, and not from any completed
+# reference you may have seen elsewhere.
+#
+# Shape rules (context-for.sh's awk parser depends on these exactly):
+#   - two levels of nesting max
+#   - one scalar per line
+#   - a `>` folded block is only valid on `objective`
+# See .context/README.md for the full schema description.
+
+objective: >
+  # One line, in your own words: what are you trying to accomplish?
+
+verified_facts:
+  # Each entry needs: claim, source, source_type. Optional: applies_to (a work-unit
+  # tag — an entry WITHOUT one is global and included in every package context-for.sh
+  # builds; an entry WITH one is included only when the tag matches).
+  #
+  # From Stage 1.1/2.4: what did context-map.sh / context-run.sh search actually show
+  # you about the RTP rate, and where did it come from?
+  # From Stage 1.2: what did authority.sh actually conclude about LegacyPaymentUtils,
+  # and on what evidence (grep hit count vs. jdeps reference count)?
+  #
+  # Example shape (delete this comment and the placeholder below, then add your own):
+  # - claim: "<what you verified, in your own words>"
+  #   source: "<file path>"
+  #   source_type: "<e.g. committed configuration, bytecode (jdeps), test output>"
+  #   applies_to: "<work-unit tag, or omit for a global fact>"
+
+authoritative_sources:
+  # What would you cite if someone asked "why do you believe that"? List the files,
+  # not a summary of what they say.
+
+decisions:
+  # Leave this EMPTY until Stage 4.4. A decision belongs here only after an actual
+  # human (you) has resolved a real conflict — not while you're still in Stage 3
+  # guessing at what Stage 4 will conclude. If you find yourself writing something
+  # here before Stage 4, stop — that's the shortcut this template is built to prevent.
+
+constraints:
+  # Anything you already know must hold, with evidence from Stage 1-2 behind it —
+  # not anything you're assuming. "Never call LegacyPaymentUtils" belongs here only
+  # once you've actually run authority.sh and seen why.
+
+superseded_sources:
+  # Leave this EMPTY until you have actual evidence — a Status field, a commit, a
+  # ticket note — that one source has superseded another. Stage 3 collects the
+  # evidence; Stage 4.4 ratifies it into a human-recorded governance decision.
+
+unknowns:
+  # What's still open? Evidence strongly favors config, but the ADR's Status field
+  # still reads "Proposed" — formal supersession has not been recorded. That belongs
+  # here until Stage 4.4's human ratification step records it as a decision.
