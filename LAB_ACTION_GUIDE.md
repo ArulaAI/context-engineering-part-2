@@ -89,7 +89,9 @@ guide — say so.
 the rest of the lab transferred by building a working tool and seeding it into a
 repository this lab has never seen.
 
-Starting in Stage 1, record every reading in `outputs/stage-readings.template.md` as you go.
+Several stages ask you to compare two numbers or commit to an answer before scrolling on.
+Keep those wherever you like — a scratch file, a notebook, or out loud with your table.
+Nothing in this lab collects them.
 
 ---
 
@@ -215,7 +217,7 @@ Use the following prompt:
 > Review MFIN-2088 using only engineering evidence in `src/`, `config/`,
 > `docs/JIRA_TICKETS.md`, and `docs/adr/`.
 >
-> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `outputs/`, `.context/`,
+> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `.context/`,
 > `.workflow/`, `.github/`, repository helper scripts, skills, or custom agents.
 >
 > Tell me:
@@ -377,10 +379,9 @@ Two authority ladders live in this repo — not the same one twice:
 exercise this input." In Copilot Chat: **`/test-gap`** — or in a terminal:
 `./scripts/test-gap.sh`.
 
-**Expected:** no RTP test found — honest verdict is "not yet exercised." State it in
-`authority.sh`'s own format (`Q: / tier N / result / VERDICT:`) in your stage readings.
-The point isn't the answer, it's picking the right primitive for a claim the lab's script
-doesn't cover.
+**Expected:** no RTP test found — honest verdict is "not yet exercised." State it back in
+`authority.sh`'s own format: `Q: / tier N / result / VERDICT:`. The point isn't the
+answer, it's picking the right primitive for a claim the lab's script doesn't cover.
 
 No script or skill? `grep -roh '\bpublic.*(' src/main/` vs. `grep -roh '\b\w\+(' src/test/`,
 then `comm -23` — same two questions ("what's untested," "where does this concept live")
@@ -693,7 +694,7 @@ Record both:
 | **A — everything attached** | | | |
 | **B — packaged** | | | |
 
-**Then answer the question that matters, in your stage readings:**
+**Then answer the question that matters:**
 
 1. Did the two runs agree? If they disagreed, which sources were in the window that
    caused it?
@@ -768,8 +769,8 @@ that actually needs one.
 
 Select **RTP Investigator** from the agent mode dropdown (`.github/agents/rtp-investigator.agent.md`), and paste:
 
-> Investigate MFIN-2088. The context-map output, authority check, and context-for
-> package are already captured in outputs/ and .context/ from Stages 1–3.
+> Investigate MFIN-2088. The promoted facts and the context-for package are already
+> captured in .context/ from Stages 1–3.
 > Work from those — do not read PaymentService.java in full.
 
 The investigator has only `['search', 'read']` — no `edit`, no `runCommands`. It
@@ -787,7 +788,7 @@ Note *how* it declines both requests: the same way, because the same tool is mis
 
 ### 4.2 — DECONSTRUCT: why a capability boundary, and not just a stronger instruction?
 
-Before continuing, answer in your stage readings: an instructions file could say "do not
+Before continuing, answer this: an instructions file could say "do not
 edit source files" and "do not run scripts" instead of the agent simply lacking those
 tools. What's the actual difference in what can go wrong? (An instruction is something
 the model reads and can misweigh against a more urgent-sounding request mid-task — "it's
@@ -828,7 +829,8 @@ two sources and the evidence available to you:
 - `docs/JIRA_TICKETS.md` — read the MFIN-2088 entry for any explicit guidance from the
   ticket author
 
-**Record your decision in your stage readings before continuing:**
+**Commit to your decision before continuing — say it out loud or write it down, but
+settle it before you scroll:**
 
 > Which source is authoritative, and why? What evidence from the repository supports
 > that call — specifically the ADR's Status field, the ticket, and commit history?
@@ -1030,7 +1032,7 @@ mvn test
 
 This will **fail** — the boundary test expects `$2.00` but the buggy implementation
 returns `$0.35` for `$100`. That failure is expected and correct: the test caught the
-bug before you did. Record this in your stage readings.
+bug before you did.
 
 The fix comes in Stage 5.4 below — once the computed-fee comparison is corrected, re-run:
 
@@ -1041,7 +1043,7 @@ mvn test
 Now all **6 tests** pass. Re-run your check-5 detector script and confirm it too reports
 **PASS**.
 
-Record all three verdicts in your stage readings:
+Three verdicts moved, and you should be able to name all three:
 - check-5 detector: FAIL (no boundary test) → PASS (test exists)
 - boundary test itself: FAIL (bug caught) → PASS (bug fixed)
 - `verify-change.sh`: FAIL → PASS
@@ -1265,7 +1267,7 @@ Search first, the way you would on any Monday: `grep -n "fee\|Fee" ` over
 "refunds don't touch fee logic, nothing to worry about."
 
 Now check the call path instead of the text, and read what the reverse request actually
-sets. In your stage readings, write:
+sets. Answer:
 
 1. Which pattern(s) apply, and what deterministic evidence settles it — not what the
    text search implied?
@@ -1312,9 +1314,9 @@ against that; nothing in Step 2 changes either way. Avoid substituting `mvn test
 equivalent) if you go that route: `context-run.sh test` already solved that exact problem
 in Stage 2.
 
-**Step 2 — Spec the tool (3 min).** Write this in `outputs/stage-readings.template.md`
-**BEFORE touching Copilot.** This is the gate — the spec proves you understood the
-pattern, not just the tool.
+**Step 2 — Spec the tool (3 min).** Write these five lines down somewhere — anywhere —
+**before you touch Copilot.** This is the gate, and it only works if the spec exists
+before the code does: it proves you understood the pattern, not just the tool.
 
 1. **DECISION:** What engineering question does this tool serve?
 2. **RAW SOURCE:** Exact command and output format.
@@ -1366,9 +1368,9 @@ say so and explain the mismatch rather than forcing it into skill shape. If the 
 answer is disposable, say that too; choosing not to build infrastructure is a valid
 engineering decision.
 
-**Step 5 — Record (2 min).** In your stage readings, add: the noisy command and raw line
-count, the reduced output and its line count, what was kept/discarded/why, the failure
-mode tested, where the tool lives, and why that deployment choice.
+**Step 5 — Report (2 min).** Be ready to say, to the room: the noisy command and its raw
+line count, the reduced output and its line count, what you kept and discarded and why,
+the failure mode you forced, where the tool lives, and why that deployment choice.
 
 **Step 6 — Seed it into your own repo (5 min).** You just built one tool by hand, so you
 know what the pieces are. Now generate the rest for a codebase that isn't Meridian's.
