@@ -1,0 +1,783 @@
+<title>Context Lifecycle Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ============================================================
+     TOKENS
+     ============================================================ */
+  :root {
+    --ink:      #131A22;
+    --ink-soft: #35434F;
+    --muted:    #5C6B7A;
+    --paper:    #F1F4F7;
+    --surface:  #FFFFFF;
+    --sunk:     #E8EDF2;
+    --rule:     #D8E0E7;
+    --rule-soft:#E7ECF1;
+    --accent:   #1A6E68;
+    --accent-bg:#E3EEED;
+
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans:  "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    --s1: 0.5rem;
+    --s2: 0.9rem;
+    --s3: 1.4rem;
+    --s4: 2.1rem;
+    --s5: 3.4rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:      #E7EDF3;
+      --ink-soft: #B6C3CE;
+      --muted:    #8B9AA8;
+      --paper:    #0E151C;
+      --surface:  #16202A;
+      --sunk:     #121B24;
+      --rule:     #26333F;
+      --rule-soft:#1E2933;
+      --accent:   #5CB2AB;
+      --accent-bg:#17322F;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink:      #E7EDF3;
+    --ink-soft: #B6C3CE;
+    --muted:    #8B9AA8;
+    --paper:    #0E151C;
+    --surface:  #16202A;
+    --sunk:     #121B24;
+    --rule:     #26333F;
+    --rule-soft:#1E2933;
+    --accent:   #5CB2AB;
+    --accent-bg:#17322F;
+  }
+
+  /* ============================================================
+     BASE
+     ============================================================ */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 3.6rem) clamp(1.1rem, 4vw, 3rem) var(--s5);
+  }
+
+  p { max-width: 66ch; }
+
+  /* one label treatment, used everywhere a small mono caption appears */
+  .label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .label.on { color: var(--accent); }
+
+  /* one card treatment, with an optional accent edge */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: var(--s3);
+  }
+  .card.edge { border-left: 3px solid var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: var(--sunk);
+    padding: 0.08em 0.34em;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+
+  /* ============================================================
+     MASTHEAD
+     ============================================================ */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); }
+
+  .masthead .label { display: block; margin-bottom: var(--s2); }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(2.2rem, 5.6vw, 3.5rem);
+    line-height: 1.06;
+    letter-spacing: -0.017em;
+    text-wrap: balance;
+    margin: 0 0 var(--s1);
+  }
+
+  .standfirst {
+    font-family: var(--serif);
+    font-size: clamp(1.12rem, 2.3vw, 1.45rem);
+    line-height: 1.44;
+    color: var(--ink-soft);
+    max-width: 38ch;
+    margin: 0;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-top: 0;
+  }
+  .stat { background: var(--surface); padding: var(--s2) var(--s3); }
+  .stat .v {
+    font-family: var(--serif);
+    font-size: 1.9rem;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .label { display: block; margin-top: 0.35rem; line-height: 1.45; }
+
+  /* ============================================================
+     SECTIONS
+     ============================================================ */
+  section { margin-top: var(--s5); }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(1.55rem, 3.2vw, 2.1rem);
+    line-height: 1.18;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+    margin: 0 0 var(--s1);
+  }
+
+  .lede { color: var(--ink-soft); max-width: 64ch; margin: 0 0 var(--s3); }
+
+  .pull {
+    font-family: var(--serif);
+    font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+    line-height: 1.4;
+    border-left: 3px solid var(--accent);
+    padding: 0.15rem 0 0.15rem var(--s3);
+    margin: var(--s3) 0 0;
+    max-width: 46ch;
+    text-wrap: balance;
+  }
+
+  /* ============================================================
+     FIGURES
+     ============================================================ */
+  figure {
+    margin: 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: var(--s3) var(--s3) var(--s2);
+  }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--ink-soft); }
+  figcaption {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin-top: var(--s2);
+    padding-top: var(--s2);
+    border-top: 1px solid var(--rule-soft);
+    max-width: 72ch;
+  }
+
+  /* ============================================================
+     TWO-UP COMPARISON
+     ============================================================ */
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr)); gap: var(--s2); }
+
+  .part { border-top: 3px solid var(--rule); }
+  .part.is-two { border-top-color: var(--accent); }
+  .part .label { display: block; margin-bottom: var(--s2); }
+  .part .claim {
+    font-family: var(--serif);
+    font-size: 1.24rem;
+    line-height: 1.34;
+    margin: 0 0 var(--s2);
+    text-wrap: balance;
+  }
+  .part ul { margin: 0; padding-left: 1.05rem; }
+  .part li { margin-bottom: 0.42rem; color: var(--ink-soft); font-size: 0.94rem; }
+  .part li:last-child { margin-bottom: 0; }
+  .part li b { color: var(--ink); font-weight: 600; }
+
+  /* ============================================================
+     TABLE
+     ============================================================ */
+  .scroller { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 38rem; font-size: 0.94rem; }
+  thead th {
+    text-align: left;
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  tbody td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.now { color: var(--muted); }
+  td.next { color: var(--ink); border-left: 1px solid var(--rule-soft); }
+  /* the today/after comparison splits evenly; the primitives table sizes to content */
+  .two-up tbody td { width: 50%; }
+  .three-up tbody td:first-child { white-space: nowrap; width: 1%; }
+  .three-up tbody td:first-child b { display: block; margin-top: 0.15rem; }
+
+  /* ============================================================
+     MOVEMENTS
+     ============================================================ */
+  .movement { margin-top: var(--s4); }
+  .mhead {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s2);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: var(--s1);
+  }
+  .mtitle { font-family: var(--serif); font-weight: 500; font-size: 1.5rem; line-height: 1.2; margin: 0; flex: 1; }
+  .mdur { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .mwhy { color: var(--ink-soft); font-size: 0.97rem; margin: var(--s2) 0 var(--s3); max-width: 62ch; }
+
+  .stage { padding: var(--s2) 0 var(--s3); border-bottom: 1px solid var(--rule-soft); }
+  .stage:last-child { border-bottom: 0; padding-bottom: 0; }
+  .sline { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; }
+  .sn {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--surface);
+    background: var(--accent);
+    padding: 0.12rem 0.42rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .sname { font-weight: 600; font-size: 1.02rem; }
+  .smin { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sout { margin: var(--s2) 0 0; font-size: 0.99rem; max-width: 64ch; }
+  .sout .label { display: block; margin-bottom: 0.2rem; }
+  .sdet { margin: var(--s1) 0 0; color: var(--muted); font-size: 0.89rem; max-width: 64ch; }
+  .prim { margin: var(--s2) 0 0; font-size: 0.85rem; color: var(--ink-soft); max-width: 64ch; }
+  .prim .label { margin-right: 0.55rem; }
+  .prim code { font-size: 0.9em; }
+
+  /* ============================================================
+     GRIDS
+     ============================================================ */
+  .patterns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .pat { background: var(--surface); padding: var(--s2) var(--s3); }
+  .pat .pn { font-family: var(--mono); font-size: 0.71rem; color: var(--accent); letter-spacing: 0.08em; }
+  .pat .pt { font-weight: 600; margin: 0.12rem 0 0.28rem; font-size: 0.97rem; }
+  .pat .pq { font-size: 0.87rem; color: var(--muted); line-height: 1.5; margin: 0; }
+
+  .stack { display: grid; gap: var(--s2); list-style: none; margin: 0; padding: 0; }
+  .stack li, .stack .card { font-size: 0.96rem; color: var(--ink-soft); }
+  .stack b { color: var(--ink); }
+
+  footer {
+    margin-top: var(--s5);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.73rem;
+    color: var(--muted);
+  }
+
+  @media (max-width: 40rem) {
+    .mhead { flex-wrap: wrap; gap: 0.4rem 0.8rem; }
+    .mtitle { flex-basis: 100%; order: 3; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="label on">Engineering Track · Advanced · GitHub Copilot</span>
+    <h1>Context Engineering, Part&nbsp;2</h1>
+    <p class="standfirst">Keeping engineering work accurate when it runs across more than one Copilot session.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="v">8</div><span class="label">Stages</span></div>
+    <div class="stat"><div class="v">118</div><span class="label">Minutes</span></div>
+    <div class="stat"><div class="v">6</div><span class="label">Copilot primitives<br>you use and build</span></div>
+    <div class="stat"><div class="v">10</div><span class="label">Portable patterns</span></div>
+    <div class="stat"><div class="v">1</div><span class="label">Toolkit installed<br>in your own repo</span></div>
+  </div>
+
+  <!-- ===================== 1. THE PROBLEM ===================== -->
+  <section>
+    <h2>The problem</h2>
+    <p class="lede">Most engineering tasks take longer than one Copilot conversation. You investigate in the morning, implement after lunch, pass the work to a teammate, and someone else reviews it next week. Each of those is a separate session. When a session ends, so does everything you established in it: what you checked, which source you trusted, and what was decided.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 286" role="img" aria-label="Two rows comparing how work moves across sessions. Without durable artifacts, each new session starts cold and prior findings are lost. With a context register and a handoff file bridging the gaps, verified facts and human decisions carry forward into each new session.">
+        <defs>
+          <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <text x="0" y="14" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity="0.6" letter-spacing="1">TODAY</text>
+
+        <rect x="0" y="28" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="85" y="50" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 1</text>
+        <text x="85" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">investigate</text>
+
+        <rect x="275" y="28" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="360" y="50" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 2</text>
+        <text x="360" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">implement</text>
+
+        <rect x="550" y="28" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="635" y="50" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 3</text>
+        <text x="635" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">review</text>
+
+        <line x1="182" y1="55" x2="263" y2="55" stroke="currentColor" stroke-width="1.25" stroke-dasharray="3 4" opacity="0.5"/>
+        <line x1="457" y1="55" x2="538" y2="55" stroke="currentColor" stroke-width="1.25" stroke-dasharray="3 4" opacity="0.5"/>
+        <text x="222" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.55">context dies</text>
+        <text x="497" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity="0.55">context dies</text>
+
+        <text x="360" y="104" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.7">Every session restarts cold. You re-derive what you already knew, or you guess.</text>
+
+        <line x1="0" y1="130" x2="720" y2="130" stroke="currentColor" stroke-width="1" opacity="0.18"/>
+
+        <text x="0" y="158" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--accent)" letter-spacing="1">AFTER THIS LAB</text>
+
+        <rect x="0" y="172" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="85" y="194" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 1</text>
+        <text x="85" y="212" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">investigate</text>
+
+        <rect x="275" y="172" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="360" y="194" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 2</text>
+        <text x="360" y="212" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">implement</text>
+
+        <rect x="550" y="172" width="170" height="54" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="635" y="194" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">Session 3</text>
+        <text x="635" y="212" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity="0.6">review</text>
+
+        <rect x="184" y="182" width="79" height="34" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.25"/>
+        <text x="223.5" y="197" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">verified</text>
+        <text x="223.5" y="209" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">facts</text>
+
+        <rect x="459" y="182" width="79" height="34" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.25"/>
+        <text x="498.5" y="197" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">human</text>
+        <text x="498.5" y="209" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">decision</text>
+
+        <line x1="172" y1="199" x2="182" y2="199" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-a)"/>
+        <line x1="265" y1="199" x2="273" y2="199" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-a)"/>
+        <line x1="447" y1="199" x2="457" y2="199" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-a)"/>
+        <line x1="540" y1="199" x2="548" y2="199" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-a)"/>
+
+        <text x="360" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.7">Every session starts from evidence someone already established, with its source attached.</text>
+        <text x="360" y="270" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--accent)">written to the repo, not held in a chat</text>
+      </svg>
+      <figcaption>The session boxes are the same in both rows, because working across sessions is already how the job goes. What changes is what sits in the gaps. Findings get recorded with the source they came from, and decisions get recorded with who made them, both in the repository rather than in a conversation that is about to close.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== 2. WHAT CHANGES ===================== -->
+  <section>
+    <h2>What changes in how you work</h2>
+    <p class="lede">The practical difference on the Monday after, written as behaviour rather than concepts.</p>
+
+    <div class="scroller">
+      <table class="two-up">
+        <thead>
+          <tr>
+            <th><span class="label">Today</span></th>
+            <th><span class="label on">After this lab</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="now">You attach every file that might be relevant and trust the model to work out which one is current.</td>
+            <td class="next">You decide what gets in, and you can say which source is allowed to settle which kind of claim.</td>
+          </tr>
+          <tr>
+            <td class="now">You paste raw build output into chat, spending hundreds of lines to learn one fact.</td>
+            <td class="next">A skill runs the command and hands back six lines. It reports a failure if the build never ran, rather than a clean summary.</td>
+          </tr>
+          <tr>
+            <td class="now">What you worked out lives in scrollback and disappears when the tab closes.</td>
+            <td class="next">What you verified is written down with its source, and the next session starts from it.</td>
+          </tr>
+          <tr>
+            <td class="now">"Do not touch that config" is written into a prompt and hoped for.</td>
+            <td class="next">The role does not have that tool at all, so no phrasing can get it back.</td>
+          </tr>
+          <tr>
+            <td class="now">You confirm the acceptance criteria by reading the code and agreeing it looks right.</td>
+            <td class="next">The criterion that must never regress runs as a check that executes the method and compares the number.</td>
+          </tr>
+          <tr>
+            <td class="now">Handing work over means forwarding the conversation and hoping it gets read.</td>
+            <td class="next">Handing over means passing the decision and the evidence for it, without the discussion that produced it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== 3. AGAINST PART 1 ===================== -->
+  <section>
+    <h2>How this differs from Part&nbsp;1</h2>
+    <p class="lede">The two labs cover different halves of the same problem. Part&nbsp;2 assumes the four levers from Part&nbsp;1 and does not repeat them.</p>
+
+    <div class="split">
+      <div class="card part">
+        <span class="label">Part 1 — inside the session</span>
+        <p class="claim">Make one conversation cheap and accurate.</p>
+        <ul>
+          <li><b>Target</b>: attach the right file and the right selection</li>
+          <li><b>Reuse</b>: prompt caching and cache hygiene</li>
+          <li><b>Isolate</b>: clear a stale session between tasks</li>
+          <li><b>Match</b>: size the request to the task</li>
+        </ul>
+      </div>
+
+      <div class="card part is-two">
+        <span class="label on">Part 2 — across the breaks</span>
+        <p class="claim">Make the work survive when no single conversation can hold it.</p>
+        <ul>
+          <li><b>Evidence and authority</b>: which source settles which kind of claim</li>
+          <li><b>Durable facts</b>: recorded with their source, not remembered</li>
+          <li><b>Isolation</b>: each role works in its own context window</li>
+          <li><b>Enforcement</b>: checks that run outside the model</li>
+          <li><b>Rehydration</b>: rebuilding the task from files alone</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="pull">Part&nbsp;1 measures the cost of a request. Part&nbsp;2 measures the cost of a restart.</p>
+  </section>
+
+  <!-- ===================== 4. THE IDEA ===================== -->
+  <section>
+    <h2>Three ways to enforce a rule</h2>
+    <p class="lede">A rule written into a prompt is the weakest of the three. The second half of the lab is spent on the two stronger ones, and the difference between them explains most of the design decisions in the stages that follow.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 272" role="img" aria-label="Three tiers of enforcement in increasing strength. An instruction written in a prompt can be overridden by a more urgent-sounding request mid-task. A capability boundary removes the tool entirely, so no prompt can restore it. A deterministic check runs outside the model and is unaffected by anything the model says.">
+        <defs>
+          <marker id="tick" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <text x="14" y="14" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.55" letter-spacing="1">TIER</text>
+        <text x="150" y="14" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.55" letter-spacing="1">WHAT IT IS</text>
+        <text x="468" y="14" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.55" letter-spacing="1">WHAT GETS PAST IT</text>
+
+        <rect x="0" y="26" width="720" height="64" fill="none" stroke="currentColor" stroke-width="1.25" stroke-dasharray="4 4" opacity="0.65"/>
+        <text x="14" y="52" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="currentColor">Instruction</text>
+        <text x="14" y="71" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.55">the common default</text>
+        <text x="150" y="52" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">A rule written into a prompt or instructions file</text>
+        <text x="150" y="71" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.6">“Do not edit source files.”</text>
+        <text x="468" y="52" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor" opacity="0.8">A request that sounds more</text>
+        <text x="468" y="69" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor" opacity="0.8">urgent, mid-task</text>
+
+        <rect x="0" y="102" width="720" height="64" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="14" y="128" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="currentColor">Capability</text>
+        <text x="14" y="147" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">Stage 4</text>
+        <text x="150" y="128" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">The tool is absent from the role entirely</text>
+        <text x="150" y="147" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.6">There is no edit tool to call.</text>
+        <text x="468" y="136" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor" opacity="0.8">Nothing a prompt can say</text>
+
+        <rect x="0" y="178" width="720" height="64" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.75"/>
+        <text x="14" y="204" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="currentColor">Deterministic check</text>
+        <text x="14" y="223" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">Stage 5</text>
+        <text x="150" y="204" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor">A check that runs outside the model</text>
+        <text x="150" y="223" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.6">Executes the method, compares the number.</text>
+        <text x="468" y="212" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="currentColor" opacity="0.8">Nothing the model says</text>
+
+        <line x1="700" y1="252" x2="700" y2="264" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#tick)"/>
+        <text x="686" y="264" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--accent)">strength increases downward</text>
+      </svg>
+      <figcaption>Each tier is harder to get around than the one above it. An instruction is text the model reads and weighs against everything else in the conversation, so a request that sounds more urgent can outweigh it. A missing tool cannot be argued back into existence. A check that runs outside the model is unaffected by anything said to the model.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== 5. THE SURFACE ===================== -->
+  <section>
+    <h2>The Copilot features you use</h2>
+    <p class="lede">The lab is built on GitHub Copilot customization features. Each one is defined in the repository, versioned with it, and invoked from chat. You use all six across the eight stages, and in the final stage you build one of your own.</p>
+
+    <div class="scroller">
+      <table class="three-up">
+        <thead>
+          <tr>
+            <th><span class="label">Primitive</span></th>
+            <th><span class="label">What it is</span></th>
+            <th><span class="label on">Where you meet it</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>.github/skills/</code><br><b>Skill</b></td>
+            <td class="now">Wraps a command and returns only its summary, never the raw output.</td>
+            <td class="next">Used from Stage 1 onward. You build your own in Stage 7.</td>
+          </tr>
+          <tr>
+            <td><code>.github/prompts/</code><br><b>Prompt file</b></td>
+            <td class="now">A reusable instruction with no command behind it. It standardises the wording, not the result.</td>
+            <td class="next">Formats your register in Stage 3. Generates your kit in Stage 7.</td>
+          </tr>
+          <tr>
+            <td><code>.github/agents/</code><br><b>Custom agent</b></td>
+            <td class="now">A role holding a restricted toolset, so it cannot exceed its remit even when asked to.</td>
+            <td class="next">Stage 4 — an investigator that cannot edit, an implementer that reads only the handoff.</td>
+          </tr>
+          <tr>
+            <td><code>agents:</code><br><b>Subagent</b></td>
+            <td class="now">An agent called by another agent. It works in its own window and returns an answer, so the caller never sees the work behind it.</td>
+            <td class="next">Stage 4, where the investigator calls <code>evidence-checker</code> rather than reading files itself, and Stages 3 and 6, where a harness runs one question against two different contexts.</td>
+          </tr>
+          <tr>
+            <td><code>.github/hooks/</code><br><b>Hook</b></td>
+            <td class="now">Runs automatically when something happens, and can block an action rather than advise against it.</td>
+            <td class="next">Stage 5 — the bound on the repair loop.</td>
+          </tr>
+          <tr>
+            <td><code>AGENTS.md</code><br><b>Instructions</b></td>
+            <td class="now">Standing rules that apply to every request without being attached to any of them.</td>
+            <td class="next">Throughout, shaping how Copilot answers questions about the codebase.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="pull">The hard part is not writing any one of these. It is knowing which one a job needs.</p>
+
+    <p style="margin-top: var(--s3);">Stage 4 works through that judgment directly, and the answer is not to delegate everything. Two of the roles in this lab are deliberately not subagents:</p>
+
+    <div class="scroller" style="margin-top: var(--s2);">
+      <table class="three-up">
+        <thead>
+          <tr>
+            <th><span class="label">Role</span></th>
+            <th><span class="label">Built as</span></th>
+            <th><span class="label on">Because</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Evidence checker</b></td><td class="now">Subagent</td><td class="next">A narrow question that takes noisy work to answer. The caller needs the answer, not the work.</td></tr>
+          <tr><td><b>Implementer</b></td><td class="now">Gated handoff</td><td class="next">Calling it as a subagent would let the investigator decide on its own that it is time to build. A person approves that step.</td></tr>
+          <tr><td><b>Reviewer</b></td><td class="now">Fresh invocation</td><td class="next">A subagent gets a clean window, but the agent calling it still writes the question. Isolation is not the same as independence.</td></tr>
+          <tr><td><b>Digest tools</b></td><td class="now">Skill</td><td class="next">Already the right fit. Making them agents would add ceremony without adding capability.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top: var(--s3);">Stage 7 asks you to make the same call on something you built yourself: whether it belongs as a skill, a prompt file, a hook, a CI check, or nothing at all, since building infrastructure for a question you will only ask once is wasted effort.</p>
+
+    <p style="margin-top: var(--s2);">None of this layer is specific to Java. The scenario uses a Java service, but <code>.github/skills/</code>, <code>.github/prompts/</code> and <code>.github/agents/</code> work the same way in a .NET, Python or TypeScript repository. That is why the toolkit you generate in Stage 7 goes into your own codebase rather than this one.</p>
+  </section>
+
+  <!-- ===================== 6. THE SESSION ===================== -->
+  <section>
+    <h2>How the session runs</h2>
+    <p class="lede">The whole session runs on one ticket: adding a real-time payment fee to a payments service. Two sources in the repository state different rates, and nothing on record says which one is current. Eight stages, grouped into four parts.</p>
+
+    <div class="movement">
+      <div class="mhead">
+        <span class="label on">Movement 1</span>
+        <h3 class="mtitle">See the problem</h3>
+        <span class="mdur">7 min</span>
+      </div>
+      <p class="mwhy">You attempt the ticket first, before anyone offers a technique.</p>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">0</span><span class="sname">The Helpful Trap</span><span class="smin">7 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Explain why the problem is <b>unsorted</b> context rather than <b>missing</b> context, and why adding more context does not reliably help.</p>
+        <p class="sdet">You give Copilot the ticket the way you normally would, then check which claims in its answer are backed by evidence and which only sound right.</p>
+        <p class="prim"><span class="label">Uses</span>Plain chat only. No skills, no agents, by design.</p>
+      </div>
+    </div>
+
+    <div class="movement">
+      <div class="mhead">
+        <span class="label on">Movement 2</span>
+        <h3 class="mtitle">Build the discipline</h3>
+        <span class="mdur">39 min</span>
+      </div>
+      <p class="mwhy">Three habits, each replacing a reflex: check before you retrieve, compute before you paste, record before you move on.</p>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">1</span><span class="sname">Discover Before You Retrieve</span><span class="smin">10 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Work out what kind of claim you are making before choosing a tool, and say which kind of evidence can settle it, including when the answer is that no tool can and a person has to decide.</p>
+        <p class="sdet">A routing table shows which files hold the answer without opening any of them. A text search then reports a dependency the compiler says is not there, and following it would have pulled an unused class with an outdated rate into the conversation.</p>
+        <p class="prim"><span class="label">Uses</span>Skills: <code>/context-map</code>, <code>/authority</code>, <code>/test-gap</code>, <code>/outline</code></p>
+      </div>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">2</span><span class="sname">Compress Before Context</span><span class="smin">10 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Write the specification for a tool that summarises any noisy command in your own toolchain, and recognise the bug that makes a tidy summary more dangerous than raw output.</p>
+        <p class="sdet">Raw test output compared against a six-line summary, followed by a harder question: what would that summary say if the build never ran?</p>
+        <p class="prim"><span class="label">Uses</span>Skill: <code>/context-run</code></p>
+      </div>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">3</span><span class="sname">Promote &amp; Package</span><span class="smin">19 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Show whether the work changed an answer, by asking one question twice: once with every source attached, once with only the material you selected.</p>
+        <p class="sdet">If the crowded version happened to be right, what in it would have told you so beforehand? Nothing in that context ranks its own sources, so a correct answer there is not one you could have checked.</p>
+        <p class="prim"><span class="label">Uses</span>Prompt file: <code>/promote-facts</code> · Skill: <code>/context-package</code> · Subagents: Context Experiment and <code>context-probe</code></p>
+      </div>
+    </div>
+
+    <div class="movement">
+      <div class="mhead">
+        <span class="label on">Movement 3</span>
+        <h3 class="mtitle">Hold it under pressure</h3>
+        <span class="mdur">28 min</span>
+      </div>
+      <p class="mwhy">The work now involves other roles, and a decision the model should not make alone.</p>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">4</span><span class="sname">Boundaries &amp; Handoff</span><span class="smin">14 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Give each role its own context window, decide which work to delegate, and recognise agreement-seeking behaviour as something caused by context rather than a flaw in the model.</p>
+        <p class="sdet">The investigator dispatches a subagent to settle a claim: the compile log and file reads stay in the subagent's window, only a verdict returns. It surfaces the conflicting rates and stops. You then assert the wrong rate on purpose and watch whether it defers to you or holds its evidence. A person resolves it for real, records who decided, and only that crosses to the implementer.</p>
+        <p class="prim"><span class="label">Uses</span>Custom agents: RTP Investigator, RTP Implementer · Subagent: <code>evidence-checker</code></p>
+      </div>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">5</span><span class="sname">Challenge &amp; Bound</span><span class="smin">14 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Turn a requirement that must not regress into a check that runs, and put a limit on a repair loop so a stuck agent escalates instead of retrying.</p>
+        <p class="sdet">The seeded bug states the rule correctly in a comment while comparing the wrong operand in the code. A reviewer may catch it. The deterministic check always does. The reviewer is started fresh rather than called by the implementer, because a clean window does not help if the agent calling it still writes the question.</p>
+        <p class="prim"><span class="label">Uses</span>Skill: <code>/verify-change</code> · Hook: the loop bound</p>
+      </div>
+    </div>
+
+    <div class="movement">
+      <div class="mhead">
+        <span class="label on">Movement 4</span>
+        <h3 class="mtitle">Prove it transfers</h3>
+        <span class="mdur">44 min</span>
+      </div>
+      <p class="mwhy">Whether any of this holds up in your own codebase.</p>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">6</span><span class="sname">Rehydrate &amp; Prove</span><span class="smin">9 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Measure what starting over costs, and identify what a new session cannot recover however much of the repository it can read.</p>
+        <p class="sdet">One new session is given three files. Another is given the whole repository and no files. Compare what each costs, then compare whether either knows that a person already settled the disagreement.</p>
+        <p class="prim"><span class="label">Uses</span>Skill: <code>/context-package</code> in a session with no history · Subagents: the same comparison harness</p>
+      </div>
+
+      <div class="stage">
+        <div class="sline"><span class="sn">7</span><span class="sname">Build Beyond the Harness</span><span class="smin">35 min</span></div>
+        <p class="sout"><span class="label on">You leave able to</span>Build the missing piece yourself, and leave with working tooling installed in a codebase this lab has never seen.</p>
+        <p class="sdet">A defect none of the lab tools were built to find. Then a summarising tool that you specify before prompting, build as a Copilot skill, and deliberately break to confirm it reports failure. Finally you generate the toolkit for your own repository.</p>
+        <p class="prim"><span class="label">Uses</span>You build a skill · Prompt file: <code>/context-kit</code></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 6. WHAT IT PRODUCES ===================== -->
+  <section>
+    <h2>What the stages produce</h2>
+    <p class="lede">The stages are not eight separate exercises. Each one produces files that later stages read. The context register is written once and then read by three different roles, one of which has no memory of the conversation that produced it.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 232" role="img" aria-label="Artifact flow through the lab. Verified findings from Stages 1 and 2 feed a context register, which is read by both the Stage 4 investigator agent and a fresh Stage 6 session. A human decision in Stage 4.4 is recorded into that same register and also written to a handoff file, which is the only input the Stage 4.5 implementer receives.">
+        <defs>
+          <marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <rect x="0" y="24" width="140" height="46" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="70" y="43" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Stages 1–2</text>
+        <text x="70" y="59" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity="0.6">verified findings</text>
+
+        <rect x="0" y="140" width="140" height="46" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="70" y="159" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Stage 4.4</text>
+        <text x="70" y="175" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity="0.6">human decision</text>
+
+        <rect x="210" y="24" width="140" height="46" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="280" y="43" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--accent)">.context/</text>
+        <text x="280" y="59" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--accent)">register</text>
+
+        <rect x="210" y="140" width="140" height="46" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="280" y="168" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--accent)">HANDOFF.md</text>
+
+        <rect x="470" y="0" width="150" height="44" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="545" y="19" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Stage 4 agent</text>
+        <text x="545" y="34" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity="0.6">investigates</text>
+
+        <rect x="470" y="62" width="150" height="44" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="545" y="81" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Stage 6 session</text>
+        <text x="545" y="96" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity="0.6">no memory at all</text>
+
+        <rect x="470" y="140" width="150" height="46" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        <text x="545" y="159" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="currentColor">Stage 4.5 agent</text>
+        <text x="545" y="175" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity="0.6">implements</text>
+
+        <line x1="142" y1="47" x2="206" y2="47" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#fl)"/>
+        <line x1="352" y1="43" x2="466" y2="22" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#fl)"/>
+        <line x1="352" y1="53" x2="466" y2="84" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#fl)"/>
+        <line x1="142" y1="163" x2="206" y2="163" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#fl)"/>
+        <line x1="352" y1="163" x2="466" y2="163" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#fl)"/>
+
+        <path d="M 70 138 L 70 105 L 280 105 L 280 74" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#fl)"/>
+        <text x="175" y="99" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent)">recorded with who decided</text>
+
+        <text x="360" y="222" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity="0.7">Written to the repository — none of this lives in a conversation.</text>
+      </svg>
+      <figcaption>Nothing passes between roles except a file. The implementer never sees the investigation conversation, only the decision it produced. The Stage 6 session has no history at all and rebuilds the task from these files alone.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== 7. TEN QUESTIONS ===================== -->
+  <section>
+    <h2>The ten questions you take with you</h2>
+    <p class="lede">These apply to any language and any toolchain. The scripts in the lab repository are one worked example, written specifically for this scenario so there is something concrete to take apart.</p>
+
+    <div class="patterns">
+      <div class="pat"><span class="pn">01</span><p class="pt">Discover</p><p class="pq">Before loading content, where does truth about this question likely live?</p></div>
+      <div class="pat"><span class="pn">02</span><p class="pt">Authority</p><p class="pq">Given a claim, what is the strongest source that can actually settle it?</p></div>
+      <div class="pat"><span class="pn">03</span><p class="pt">Reduce</p><p class="pq">What is the minimum signal this decision needs, and what can be computed outside the model?</p></div>
+      <div class="pat"><span class="pn">04</span><p class="pt">Promote</p><p class="pq">Which discoveries deserve to survive this conversation, with what provenance?</p></div>
+      <div class="pat"><span class="pn">05</span><p class="pt">Package</p><p class="pq">What is the minimum viable context for the next specific action?</p></div>
+      <div class="pat"><span class="pn">06</span><p class="pt">Constrain</p><p class="pq">Does this role need a capability boundary, not just a prompt boundary?</p></div>
+      <div class="pat"><span class="pn">07</span><p class="pt">Handoff</p><p class="pq">What passes to the next role: the decisions, or the whole conversation?</p></div>
+      <div class="pat"><span class="pn">08</span><p class="pt">Verify</p><p class="pq">Which criteria are non-negotiable enough to become an executable check?</p></div>
+      <div class="pat"><span class="pn">09</span><p class="pt">Review</p><p class="pq">Should the evaluator inherit the producer's reasoning, or only curated evidence?</p></div>
+      <div class="pat"><span class="pn">10</span><p class="pt">Rehydrate</p><p class="pq">Can the engineering state be reconstructed from durable artifacts alone?</p></div>
+    </div>
+  </section>
+
+  <!-- ===================== 8. TAKE HOME ===================== -->
+  <section>
+    <h2>What you take home</h2>
+    <p class="lede">Three things go home with you. The scenario scripts are not among them; they were the worked example.</p>
+    <ul class="stack">
+      <li class="card edge"><b>The ten questions.</b> The part of the lab most likely to still apply in two years, whatever language, toolchain, or assistant you are using.</li>
+      <li class="card edge"><b>A kit generator.</b> One file that you copy into any repository. It reads that repository's build file and layout, then generates the routing table, the evidence check, the test summary and the file outliner for that stack. You run it against your own code in Stage 7, so you have seen it work before you leave.</li>
+      <li class="card edge"><b>The tool you built yourself</b>, available in your editor as a slash command rather than a script someone has to remember exists.</li>
+    </ul>
+  </section>
+
+
+  <footer>InRhythm · Arula Labs — Context Engineering, Part 2 · Internal walkthrough</footer>
+
+</div>
