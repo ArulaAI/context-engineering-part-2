@@ -44,6 +44,11 @@ Do not attach whole files to answer questions the above can answer. Do not reach
 broad workspace search unless the question is genuinely broad and you cannot name a
 narrower primitive.
 
+If you hold the `agent` tool, prefer dispatching `evidence-checker` for any single
+factual claim over gathering the evidence yourself. It returns a verdict; the compile
+output and file reads stay in its context rather than yours. Dispatch one claim at a
+time.
+
 ## Output
 
 - Return only the code that changes. No unchanged methods, no class boilerplate.

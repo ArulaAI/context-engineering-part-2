@@ -8,11 +8,33 @@ environments. Every fallback below still teaches the stage's lesson — none of 
 
 ## Stage 4 — agents / isolation
 
-### The three agents don't appear in the mode dropdown
+### `Context Experiment` reports only one result, or refuses to run
+
+**Cause:** it was given one context instead of two, or the build does not honour the
+`agents:` property so its dispatch to `context-probe` never fired.
+
+**Fix:** confirm your message names both **Context A** and **Context B**. If it does and
+you still get one result, check whether `context-probe` appears in the mode dropdown. If
+it does not, run the comparison by hand in two separate chats, which Stage 3.3 documents
+in full under "The manual version." The isolation is then yours to perform rather than
+the harness's, and the comparison is the same.
+
+### Both probes return the same answer
+
+**Cause:** none. Agreement is a legitimate outcome.
+
+**Fix:** nothing. Stage 3.3's graded question is not whether the answers differ, it is
+whether the crowded context gave you any way to *audit* its answer. Two matching answers
+still leave that question open, which is the point. Do not re-run hoping for a
+divergence.
+
+### The agents don't appear in the mode dropdown
 
 **Cause:** `context-engineering-part-2/` was opened as a subfolder of another workspace, not
 as its own root. Copilot's `.github/agents/` discovery resolves per opened workspace
-root.
+root. All six (`rtp-investigator`, `rtp-implementer`, `rtp-reviewer`,
+`evidence-checker`, `context-probe`, `context-experiment`) come from the same directory,
+so they appear or fail together.
 
 **Fix:** Close the current window. `File > Open Folder...` and select
 `context-engineering-part-2/` itself, not its parent.
@@ -27,6 +49,28 @@ If it really was `rtp-investigator` and it still edited, this is a build-specifi
 say so in delivery. Manual fallback: run investigation and implementation in two
 separate chat windows, and treat "don't paste implementation instructions into the
 investigation window" as the enforced boundary instead of a missing tool.
+
+### `evidence-checker` is never dispatched — the investigator answers itself
+
+**Cause:** either the build does not honour the `agents:` frontmatter property, or the
+investigator judged it could answer without help.
+
+**Fix:** ask it explicitly — *"dispatch evidence-checker for this claim."* If it still
+answers inline, confirm `evidence-checker` appears in the mode dropdown at all. If it
+does not, the `agents:` property is not being honoured on this build: run
+`evidence-checker` yourself from the dropdown with the same question, paste its verdict
+back, and treat the isolation lesson as demonstrated by hand rather than automatically.
+The point — the caller gets the answer without the evidence-gathering — survives the
+manual version.
+
+### The agent complies with the wrong rate in Stage 4.4
+
+**Cause:** none. This is one of the two expected outcomes.
+
+**Fix:** nothing to fix — record it and use the left-hand column of 4.4's table. An
+agent that defers to the person in front of it is the default behaviour the stage
+exists to expose. If it pushes back instead, use the right-hand column. The exercise is
+built so both results teach; do not re-run it hoping for a particular one.
 
 ### The `CONTEXT CONFLICT` block never appears
 

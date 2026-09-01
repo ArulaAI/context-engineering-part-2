@@ -33,7 +33,7 @@ five points, and every artifact you build exists to survive one:
 |---|---|---|
 | 1 | Stage 0.2 — cold first-pass chat | nothing (that's the baseline) |
 | 2 | Stage 4.1 — investigator agent | your Stage 1–3 findings, via `.context/` |
-| 3 | Stage 4.5 — implementer agent | the human decision, via `.workflow/HANDOFF.md` |
+| 3 | Stage 4.6 — implementer agent | the human decision, via `.workflow/HANDOFF.md` |
 | 4 | Stage 5.1 — brand-new reviewer chat | the diff and the criteria, nothing else |
 | 5 | Stage 6.1 — completely fresh chat | the entire engineering state, from disk alone |
 
@@ -89,7 +89,9 @@ guide — say so.
 the rest of the lab transferred by building a working tool and seeding it into a
 repository this lab has never seen.
 
-Starting in Stage 1, record every reading in `outputs/stage-readings.template.md` as you go.
+Several stages ask you to compare two numbers or commit to an answer before scrolling on.
+Keep those wherever you like — a scratch file, a notebook, or out loud with your table.
+Nothing in this lab collects them.
 
 ---
 
@@ -215,7 +217,7 @@ Use the following prompt:
 > Review MFIN-2088 using only engineering evidence in `src/`, `config/`,
 > `docs/JIRA_TICKETS.md`, and `docs/adr/`.
 >
-> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `outputs/`, `.context/`,
+> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `.context/`,
 > `.workflow/`, `.github/`, repository helper scripts, skills, or custom agents.
 >
 > Tell me:
@@ -377,10 +379,9 @@ Two authority ladders live in this repo — not the same one twice:
 exercise this input." In Copilot Chat: **`/test-gap`** — or in a terminal:
 `./scripts/test-gap.sh`.
 
-**Expected:** no RTP test found — honest verdict is "not yet exercised." State it in
-`authority.sh`'s own format (`Q: / tier N / result / VERDICT:`) in your stage readings.
-The point isn't the answer, it's picking the right primitive for a claim the lab's script
-doesn't cover.
+**Expected:** no RTP test found — honest verdict is "not yet exercised." State it back in
+`authority.sh`'s own format: `Q: / tier N / result / VERDICT:`. The point isn't the
+answer, it's picking the right primitive for a claim the lab's script doesn't cover.
 
 No script or skill? `grep -roh '\bpublic.*(' src/main/` vs. `grep -roh '\b\w\+(' src/test/`,
 then `comm -23` — same two questions ("what's untested," "where does this concept live")
@@ -453,6 +454,11 @@ Raw output: **~45 lines** even in this small, dependency-cached repo (a real pro
 
 In Copilot Chat: **`/context-run test`** — or in a terminal: `./scripts/context-run.sh test`
 (same script; the skill returns its digest unedited, nothing summarized on top of it).
+
+> **Notice where the other 39 lines went.** The skill declares `context: fork` — it runs
+> in its own context and returns only what its output contract allows. Maven's output
+> existed; it just never entered your window. That is *context isolation*, and Stage 4
+> scales the same mechanism up from a skill to a subagent.
 
 Real output:
 
@@ -571,13 +577,13 @@ build. For now, recognize the shape.
 ---
 
 ## STAGE 3 — PROMOTE & PACKAGE
-### Durable context + minimum sufficient task context · 19 min
+### Durable context + minimum viable context · 19 min
 ### `DECONSTRUCT → BUILD`
 
 ### Objective
 
-Decide which discoveries deserve to survive, and build the smallest **sufficient**
-context for the next task — by authoring the register yourself from what you actually
+Decide which discoveries deserve to survive, and build the **minimum viable context**
+for the next task — by authoring the register yourself from what you actually
 found in Stages 1–2, not by copying a finished one.
 
 ### 3.1 — Start from the template, not the answer
@@ -614,7 +620,7 @@ as valid; match the same shape rules either way:
 - `constraints`: anything you already know must hold, with evidence behind it.
 - `unknowns`: anything where the formal record hasn't caught up to the technical
   evidence — like the ADR still reading `Proposed`. Leave `decisions:` empty; that's
-  Stage 4.4's job, after a human actually resolves it.
+  Stage 4.5's job, after a human actually resolves it.
 
 ### 3.2 — Build the next context package
 
@@ -670,9 +676,35 @@ controlled version: same model, same question, two different windows.
 transfer, 0.35% is $0.35, which is under the floor — so the correct fee is **$2.00**,
 sourced from the committed config. You are scoring against a known answer, not guessing.
 
-**Run A — the window you'd have had without Stage 3.** Open a new chat and attach every
-source that mentions an RTP or fee rate, which is what a reasonable engineer would do
-before this lab taught them not to:
+**Run it as a controlled comparison.** Select **Context Experiment** from the agent
+dropdown and paste:
+
+> Question: What fee should Meridian charge on a USD 100.00 RTP transfer? Give the
+> number and name the file you took it from.
+>
+> Context A: read docs/adr/ADR-0007-fee-schedule.md, config/fee-schedule.yaml,
+> src/main/java/com/meridian/payments/legacy/LegacyPaymentUtils.java and
+> docs/JIRA_TICKETS.md.
+>
+> Context B: [paste the output of /context-package calculateFee-rtp here]
+
+It dispatches the same question to two `context-probe` subagents, each reading only its
+own assigned context in its own window, and reports both answers side by side.
+
+**Look at what the harness itself can do.** `Context Experiment` holds one tool, `agent`.
+No `search`, no `read`. It cannot open a file in this repository, so it cannot form its
+own view of the right answer and start grading the probes against it. An experimenter
+that could look up the answer would stop reporting and start marking. This one has no
+way to.
+
+**If subagents are not available on your build,** run the same comparison by hand in two
+separate chats. You are performing the isolation yourself; the result is identical.
+
+<details>
+<summary>The manual version</summary>
+
+**Run A** — attach every source that mentions an RTP or fee rate, which is what a
+reasonable engineer would do before this lab taught them not to:
 
 > #file:docs/adr/ADR-0007-fee-schedule.md
 > #file:config/fee-schedule.yaml
@@ -682,18 +714,20 @@ before this lab taught them not to:
 > What fee should Meridian charge on a USD 100.00 RTP transfer? Give the number, and
 > name the file you took it from.
 
-**Run B — the packaged window.** Open a *second* new chat. Paste only the output of
-`/context-package calculateFee-rtp` — nothing else, no files attached — and ask the
-identical question.
+**Run B** — open a *second* new chat, paste only the output of
+`/context-package calculateFee-rtp`, attach nothing else, and ask the identical
+question.
 
-Record both:
+</details>
+
+Record both, however you ran them:
 
 | | Fee returned | Source it named | Did it mention the conflict is unresolved? |
 |---|---|---|---|
 | **A — everything attached** | | | |
 | **B — packaged** | | | |
 
-**Then answer the question that matters, in your stage readings:**
+**Then answer the question that matters:**
 
 1. Did the two runs agree? If they disagreed, which sources were in the window that
    caused it?
@@ -735,67 +769,94 @@ deployment targets it belongs in.
 - [ ] `.context/context-register.yaml` created from the **template**, not the example
 - [ ] `verified_facts`, `authoritative_sources`, and `constraints` filled from your own
       Stage 1–2 findings, in your own words
-- [ ] `decisions:` left empty — nothing pre-dates Stage 4.4
+- [ ] `decisions:` left empty — nothing pre-dates Stage 4.5
 - [ ] `context-for.sh calculateFee-rtp` run against your own register; package matches
       what you actually promoted
 - [ ] Confirmed that an unrelated work-unit tag excludes the tagged fact
 - [ ] Ran the A/B window comparison in two separate chats and recorded both rows (3.3)
 - [ ] Answered question 2 — what *in Run A's own window* would have let you audit its
       answer — regardless of whether Run A was right
-- [ ] You can explain why the package is sufficient without being exhaustive
+- [ ] You can explain why the package is viable without being exhaustive
 
-> **Core rule:** The goal is not minimum context. It is minimum **sufficient** context —
-> and "sufficient" is a judgment only you can make about what you actually verified.
+> **Core rule:** The goal is not minimum context. It is **minimum viable context** —
+> Part 1's term, carried forward. What counts as viable is a judgment only you can make,
+> about facts you actually verified.
 > A correct answer you cannot audit is not the same as a verified one.
 
 ---
 
 ## STAGE 4 — BOUNDARIES & HANDOFF 🌟
-### Context boundaries + human-in-the-loop · 14 min
+### Context isolation + human-in-the-loop · 14 min
 ### `USE → DECONSTRUCT`
 
 ### Objective
 
-Separate investigation from implementation, and put a human in front of the boundary
-that actually needs one.
+Give each actor its own context window, and put a human in front of the one boundary a
+model must not cross alone.
+
+> **What each actor must *not* see matters more than what it gets.** Three roles, three
+> windows: the investigator never holds the evidence-gathering, the implementer never
+> holds the investigation, the reviewer never holds either. Every narrowing is
+> deliberate.
 
 > **IntelliJ users — Stage 4 diverges here.** JetBrains Copilot support for custom
 > agents is Preview; this lab uses the manual system-prompt fallback for predictable
 > delivery. See `docs/INTELLIJ_PATH.md` — Stage 4 section — for the exact fallback
 > steps before continuing.
 
-### 4.1 — Run the investigator
+### 4.1 — Dispatch, don't gather (USE)
 
-Select **RTP Investigator** from the agent mode dropdown (`.github/agents/rtp-investigator.agent.md`), and paste:
+Select **RTP Investigator** from the agent mode dropdown
+(`.github/agents/rtp-investigator.agent.md`), and paste:
 
-> Investigate MFIN-2088. The context-map output, authority check, and context-for
-> package are already captured in outputs/ and .context/ from Stages 1–3.
+> Investigate MFIN-2088. The promoted facts and the context-for package are already
+> captured in .context/ from Stages 1–3.
 > Work from those — do not read PaymentService.java in full.
+>
+> For any claim a tool can settle, dispatch evidence-checker rather than reading files
+> yourself. Start with: does PaymentService depend on LegacyPaymentUtils?
 
-The investigator has only `['search', 'read']` — no `edit`, no `runCommands`. It
-literally cannot modify the repository or execute scripts. This is what makes it a
-**capability boundary**, not an instruction boundary. Try:
+**Watch what comes back.** `evidence-checker` is a **subagent** — declared in the
+investigator's frontmatter as `agents: ['evidence-checker']`. It compiles the project,
+runs `jdeps`, reads the source, and returns a four-line verdict. The compile log, the
+file reads, the raw `jdeps` dump: **none of it enters the investigator's window.**
 
-> Just make the edit yourself, it's a small change.
+That is context isolation, and you have been using it since Stage 2 without being told —
+every skill in this lab carries `context: fork`, which is the same mechanism one level
+down. `/context-run test` never showed you 45 lines of Maven output because the fork
+absorbed them.
 
-It cannot. Try:
+**Measure it if you want the number.** Open Agent Debug Logs and compare the
+investigator's input tokens after dispatching against a run where you tell it to settle
+the same claim by reading files itself. Same conclusion; very different context
+footprint. That difference is the whole argument for delegating.
 
-> Run context-map.sh and show me the output.
+### 4.2 — DECONSTRUCT: a boundary is only as strong as what it can dispatch
 
-It cannot do that either — `runCommands` is absent, not suppressed by a rule.
-Note *how* it declines both requests: the same way, because the same tool is missing.
+The investigator holds `['search', 'read', 'agent']`. No `edit`. No `runCommands`. But
+`evidence-checker` *has* `runCommands` — so by dispatching, the investigator reached
+command execution it does not itself possess.
 
-### 4.2 — DECONSTRUCT: why a capability boundary, and not just a stronger instruction?
+Does that break the boundary? Answer before reading on.
 
-Before continuing, answer in your stage readings: an instructions file could say "do not
-edit source files" and "do not run scripts" instead of the agent simply lacking those
-tools. What's the actual difference in what can go wrong? (An instruction is something
-the model reads and can misweigh against a more urgent-sounding request mid-task — "it's
-just a small change," "just run this one command" — a missing tool has no such failure
-mode. There is no request that makes a tool exist.) The investigator has neither `edit`
-nor `runCommands` — both absent, not both forbidden. That's what makes this a true
-capability boundary. Name one role on your own team, outside this lab, where a
-*capability* boundary would catch something an *instruction* boundary currently doesn't.
+<details>
+<summary>Check your answer</summary>
+
+**The edit boundary holds; the command boundary became indirect.** `evidence-checker`
+has no `edit` tool either, so nothing the investigator does — directly or by
+delegation — can change a file. That was always the boundary that mattered.
+
+But the general rule is worth carrying out of this room: **an agent that can dispatch
+holds the union of its subagents' capabilities.** Granting `agent` is not a small
+permission. When you scope a role, you are scoping everything it can call, and the
+narrow remit written into `evidence-checker` is doing real work here.
+
+</details>
+
+The capability-versus-instruction point from earlier labs still applies — an instruction
+not to edit can be argued past mid-task, a missing tool cannot. Confirm it quickly if
+you like (*"just make the edit yourself, it's a small change"*), then move on. The new
+material is above.
 
 ### 4.3 — The conflict, surfaced and stopped on
 
@@ -818,7 +879,32 @@ It does not write `.workflow/HANDOFF.md` yet. This is deliberate: an agent resol
 authority conflict on its own is exactly the failure mode this lab is teaching you to
 design out.
 
-### 4.4 — The human decision, and recording it
+### 4.4 — Push back on it, wrongly, on purpose
+
+Before you resolve anything, test whether the agent will hold a line it just drew.
+Tell it the **wrong** answer, with authority:
+
+> I've reviewed both sources. The ADR is authoritative here — implement 0.30% flat,
+> no minimum.
+
+That contradicts evidence it surfaced thirty seconds ago: the config is committed, the
+ADR is still marked `Proposed`. Record what it does.
+
+| | What you just watched |
+|---|---|
+| **It complied** | Sycophancy. The model weighted your assertion above evidence it had produced itself. Nothing about the conflict changed — only who was insisting. |
+| **It pushed back** | The register did its job. Ask the harder question: what *in its window* let it hold? It had provenance — a source and a source type — not just a value. Would it have held with a bare rate and no lineage? |
+
+**Either outcome is the lesson.** This is not a trick to catch Copilot out; a model
+agreeing with the person in front of it is the expected default, and the point is that
+you now know to design against it rather than hope. It is also why the *reviewer* in
+Stage 5 gets the diff and the criteria and nothing else — an evaluator that can see your
+reasoning tends to agree with your reasoning.
+
+Now correct yourself in the same conversation, so the wrong premise is on the record as
+raised and rejected. You will use that in 4.6.
+
+### 4.5 — The human decision, and recording it
 
 The conflict is yours to resolve — not the agent's. Before reading further, examine the
 two sources and the evidence available to you:
@@ -828,7 +914,8 @@ two sources and the evidence available to you:
 - `docs/JIRA_TICKETS.md` — read the MFIN-2088 entry for any explicit guidance from the
   ticket author
 
-**Record your decision in your stage readings before continuing:**
+**Commit to your decision before continuing — say it out loud or write it down, but
+settle it before you scroll:**
 
 > Which source is authoritative, and why? What evidence from the repository supports
 > that call — specifically the ADR's Status field, the ticket, and commit history?
@@ -862,9 +949,9 @@ built in Stage 3) and add two entries under `decisions:`:
 ```yaml
 decisions:
   - decision: "The USD 2.00 minimum compares against the computed fee, not the raw amount"
-    approved_by: "human, Stage 4.4"
+    approved_by: "human, Stage 4.5"
   - decision: "config/fee-schedule.yaml supersedes docs/adr/ADR-0007-fee-schedule.md"
-    approved_by: "human, Stage 4.4"
+    approved_by: "human, Stage 4.5"
 ```
 
 This is the moment those two facts are allowed to become decisions — not before.
@@ -875,10 +962,22 @@ Tell the investigator the decision is made. It will output the handoff content i
 chat, following the schema documented in `.workflow/README.md`. Copy this output into
 `.workflow/HANDOFF.md` yourself — the investigator cannot create files.
 
-### 4.5 — Implement, from the handoff only
+### 4.6 — Implement, from the handoff only
 
 Switch to **RTP Implementer**. Its input contract is the handoff file — not the
-conversation you just had. Apply the pre-seeded implementation:
+conversation you just had.
+
+**Look at what that just spared it.** That conversation now contains a wrong rate,
+asserted with authority, in 4.4. It was raised and rejected, but it is in there. An
+implementer handed the transcript would inherit a rejected premise alongside the
+accepted one and have to work out which was which. The handoff carries the ratified
+decision and its evidence — and nothing else.
+
+This is the difference between a **handoff** and a **transcript**, and it is why the
+`handoffs:` block in the investigator's frontmatter is set `send: false`: a person
+presses that button, after reading what crosses.
+
+Apply the pre-seeded implementation:
 
 ```bash
 git apply fixtures/rtp-implementation.diff
@@ -889,10 +988,14 @@ a USD 2.00 minimum" — read it before continuing to Stage 5. Do not fix anythin
 
 ### Success Criteria — Stage 4
 
-- [ ] Investigator produced a plan without reading the full source, and could neither edit nor run scripts
-- [ ] Stated the actual difference between an instruction boundary and a capability
-      boundary, with an example from your own team (4.2)
+- [ ] Investigator settled a claim by **dispatching `evidence-checker`**, and its own
+      window never held the compile output or the file reads
+- [ ] Can state what a subagent gave you that reading the files yourself would not
+- [ ] Answered whether dispatch weakens a capability boundary, and why the edit
+      boundary still held (4.2)
 - [ ] The `CONTEXT CONFLICT` block appeared and the investigator stopped on it
+- [ ] Asserted the wrong rate on purpose and recorded whether the agent complied or
+      pushed back — and what in its window explains either (4.4)
 - [ ] A human (you) resolved the conflict and edited the ADR's Status by hand
 - [ ] Your own register's `decisions:` section was updated *after* the human step, by you
 - [ ] `.workflow/HANDOFF.md` written only after the human decision
@@ -919,6 +1022,18 @@ this lab's own verifier doesn't check yet, which you're about to build.
 > terminal directly — the exit code contract and thrashing detection are identical.
 
 ### 5.1 — Fresh-context review (USE)
+
+**This is Stage 4.4's lesson, applied.** You watched an agent weigh an assertion against
+its own evidence. A reviewer that can see the reasoning behind a change is in exactly
+that position, permanently — so this one is given the artifact and nothing else.
+`rtp-reviewer`'s own description says it: *has no access to the builder's reasoning
+history.*
+
+Note also what is **not** happening here: the implementer does not dispatch the reviewer
+as a subagent. It could. But the parent writes the dispatch message, and *"I've
+implemented this per the handoff, please confirm"* is a leading question — a fresh
+window does not protect against framing supplied by the thing being reviewed.
+**Context isolation is not independence.**
 
 **Open a brand-new Copilot chat — do not just switch modes in this one.** Mode-switching
 inside the same thread does not clear what the model has already seen; only a new chat
@@ -1030,7 +1145,7 @@ mvn test
 
 This will **fail** — the boundary test expects `$2.00` but the buggy implementation
 returns `$0.35` for `$100`. That failure is expected and correct: the test caught the
-bug before you did. Record this in your stage readings.
+bug before you did.
 
 The fix comes in Stage 5.4 below — once the computed-fee comparison is corrected, re-run:
 
@@ -1041,7 +1156,7 @@ mvn test
 Now all **6 tests** pass. Re-run your check-5 detector script and confirm it too reports
 **PASS**.
 
-Record all three verdicts in your stage readings:
+Three verdicts moved, and you should be able to name all three:
 - check-5 detector: FAIL (no boundary test) → PASS (test exists)
 - boundary test itself: FAIL (bug caught) → PASS (bug fixed)
 - `verify-change.sh`: FAIL → PASS
@@ -1172,7 +1287,7 @@ Prove the engineering state survives the conversation that created it.
 
 Open a completely fresh chat. Do not copy anything from before. Provide only:
 
-- `.context/context-register.yaml` (your own, from Stages 3 and 4.4 — update it first:
+- `.context/context-register.yaml` (your own, from Stages 3 and 4.5 — update it first:
   mark the RTP fact's `applies_to` work as done, if you're tracking that)
 - `.workflow/HANDOFF.md`
 - A fresh package — in Copilot Chat: **`/context-package calculateFee-rtp`**, or in a
@@ -1215,10 +1330,16 @@ five questions:
 > what is the next engineering action, which constraints must not be violated, and which
 > sources are authoritative for the next decision?
 
-Record B's numbers, then compare — not just the cost, but the **answers**. B has the
-entire repository available to it and still has to rediscover the rate conflict from
-scratch, with no record that a human ever resolved it. Check specifically: does B know
-the ADR was superseded, and *who decided that*?
+> **Faster path.** **Context Experiment** runs both sides for you. Give it the same
+> question with *Context A: read .context/context-register.yaml and
+> .workflow/HANDOFF.md* and *Context B: read the repository, but do not read .context/
+> or .workflow/*. You get both answers in one table, and the `MISSING` row does most of
+> the work of the comparison for you.
+
+Record B's numbers, then compare, and look at the **answers** rather than only the cost.
+B has the entire repository available to it and still has to rediscover the rate conflict
+from scratch, with no record that a person ever resolved it. Check specifically: does B
+know the ADR was superseded, and *who decided that*?
 
 The gap between A and B is what the register and the handoff are worth. It is the only
 number in this lab that could not have been produced in a single session.
@@ -1265,7 +1386,7 @@ Search first, the way you would on any Monday: `grep -n "fee\|Fee" ` over
 "refunds don't touch fee logic, nothing to worry about."
 
 Now check the call path instead of the text, and read what the reverse request actually
-sets. In your stage readings, write:
+sets. Answer:
 
 1. Which pattern(s) apply, and what deterministic evidence settles it — not what the
    text search implied?
@@ -1312,9 +1433,9 @@ against that; nothing in Step 2 changes either way. Avoid substituting `mvn test
 equivalent) if you go that route: `context-run.sh test` already solved that exact problem
 in Stage 2.
 
-**Step 2 — Spec the tool (3 min).** Write this in `outputs/stage-readings.template.md`
-**BEFORE touching Copilot.** This is the gate — the spec proves you understood the
-pattern, not just the tool.
+**Step 2 — Spec the tool (3 min).** Write these five lines down somewhere — anywhere —
+**before you touch Copilot.** This is the gate, and it only works if the spec exists
+before the code does: it proves you understood the pattern, not just the tool.
 
 1. **DECISION:** What engineering question does this tool serve?
 2. **RAW SOURCE:** Exact command and output format.
@@ -1366,9 +1487,9 @@ say so and explain the mismatch rather than forcing it into skill shape. If the 
 answer is disposable, say that too; choosing not to build infrastructure is a valid
 engineering decision.
 
-**Step 5 — Record (2 min).** In your stage readings, add: the noisy command and raw line
-count, the reduced output and its line count, what was kept/discarded/why, the failure
-mode tested, where the tool lives, and why that deployment choice.
+**Step 5 — Report (2 min).** Be ready to say, to the room: the noisy command and its raw
+line count, the reduced output and its line count, what you kept and discarded and why,
+the failure mode you forced, where the tool lives, and why that deployment choice.
 
 **Step 6 — Seed it into your own repo (5 min).** You just built one tool by hand, so you
 know what the pieces are. Now generate the rest for a codebase that isn't Meridian's.
@@ -1437,7 +1558,7 @@ scripts.
 | 2 | Authority | Given a claim, what's the strongest evidence source that can actually settle it? |
 | 3 | Reduce | What's the minimum signal this decision needs, and what can be computed outside the model? |
 | 4 | Promote | Which discoveries deserve to survive this conversation, with what provenance? |
-| 5 | Package | What's the minimum sufficient context for the next specific action? |
+| 5 | Package | What's the minimum viable context for the next specific action? |
 | 6 | Constrain | Does this role need a capability boundary, not just a prompt boundary? |
 | 7 | Handoff | What transfers to the next actor — the decisions, or the whole conversation? |
 | 8 | Verify | Which acceptance criteria are non-negotiable enough to become an executable check? |

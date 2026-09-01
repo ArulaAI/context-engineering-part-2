@@ -103,7 +103,22 @@ Copilot's agent mode dropdown and restrict available tools at the Copilot extens
 4. **Stage 4.2 becomes a demonstration rather than a live proof.** That is still
    instructive: you now know exactly why VS Code's capability boundary is stronger, and
    you can articulate it precisely because you've seen the instruction-boundary version.
-   Write that comparison in your stage readings.
+   Be ready to state that comparison.
+
+**Subagents (Stage 4.1).** The dispatch of `evidence-checker` has no IntelliJ
+equivalent. Run it as a separate step instead: open a second Copilot Chat, paste
+`evidence-checker`'s instructions as the opening message, ask it the single claim, and
+carry its verdict back to your investigation chat by hand. You are performing the
+isolation manually — the evidence-gathering happened in a window that is not your
+investigation window, which is the whole property being taught. What you lose is the
+automation, not the lesson.
+
+**The comparison harness (Stages 3.3 and 6.3).** `Context Experiment` and
+`context-probe` have no IntelliJ equivalent either. Both stages document a manual version
+that produces the same comparison: two separate Copilot Chat panels, the same question in
+each, a different context in each. Run those. You are assembling the isolation by hand
+rather than having a harness do it, and the numbers you compare at the end are the same
+numbers.
 
 > **Note:** IntelliJ Copilot does not enforce tool lists at the extension level. The
 > learning objective — understanding why capability boundaries are structurally stronger
@@ -238,9 +253,8 @@ it with an instruction boundary and discuss the structural difference.
 
 **Recommended handling:** treat Stage 4.2 as a discussion exercise in IntelliJ. The
 question "what is the actual difference between an instruction boundary and a capability
-boundary" is still answerable — you just cannot prove it with a live demo. Record your
-answer in `outputs/stage-readings.template.md` as you would in VS Code; the written
-reflection has the same value even without the live proof.
+boundary" is still answerable — you just cannot prove it with a live demo. Answer it the
+same way you would in VS Code; the reasoning has the same value without the live proof.
 
 ---
 
