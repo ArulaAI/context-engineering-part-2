@@ -35,7 +35,7 @@ authoritative_sources:
   # not a summary of what they say.
 
 decisions:
-  # Leave this EMPTY until Stage 4.4. A decision belongs here only after an actual
+  # Leave this EMPTY until Stage 4.5. A decision belongs here only after an actual
   # human (you) has resolved a real conflict — not while you're still in Stage 3
   # guessing at what Stage 4 will conclude. If you find yourself writing something
   # here before Stage 4, stop — that's the shortcut this template is built to prevent.
@@ -48,9 +48,9 @@ constraints:
 superseded_sources:
   # Leave this EMPTY until you have actual evidence — a Status field, a commit, a
   # ticket note — that one source has superseded another. Stage 3 collects the
-  # evidence; Stage 4.4 ratifies it into a human-recorded governance decision.
+  # evidence; Stage 4.5 ratifies it into a human-recorded governance decision.
 
 unknowns:
   # What's still open? Evidence strongly favors config, but the ADR's Status field
   # still reads "Proposed" — formal supersession has not been recorded. That belongs
-  # here until Stage 4.4's human ratification step records it as a decision.
+  # here until Stage 4.5's human ratification step records it as a decision.
