@@ -79,13 +79,13 @@ guide — say so.
 | 0: The Helpful Trap | 7 min | Vote on instinct, ask Copilot, challenge its claims | Baseline | Use |
 | 1: Discover Before You Retrieve | 10 min | Map where truth lives; deconstruct authority | Context mapping + authority | Use → Deconstruct → Adapt |
 | 2: Compress Before Context | 10 min 🌟 | Reduce noisy tool output; deconstruct how the reducer works | Pre-model evidence reduction | Use → Deconstruct |
-| 3: Promote & Package | 12 min | Author your own register from your own findings | Context lifecycle | Deconstruct → Build |
+| 3: Promote & Package | 19 min 🌟 | Author your own register, then prove it changed an answer | Context lifecycle + controlled comparison | Deconstruct → Build |
 | 4: Boundaries & Handoff | 14 min 🌟 | Separate investigation from implementation, cross a human gate | Context boundaries + HITL | Use → Deconstruct |
 | 5: Challenge & Bound | 14 min 🌟 | Fresh-context review, a deterministic bound, one check you build | Independent evaluation + enforcement | Use → Build |
 | 6: Rehydrate & Prove | 9 min | Reconstruct the task from artifacts alone, then measure what that saved | Rehydration + proof | Use |
 | 7: Build Beyond the Harness | 35 min 🌟 | Recognition check on a new problem, build a reducer, then regenerate the kit for your own repo | Independent transfer + construction | Build |
 
-**Total: ~111 minutes.** Every stage is required — Stage 7 is where you prove
+**Total: ~118 minutes.** Every stage is required — Stage 7 is where you prove
 the rest of the lab transferred by building a working tool and seeding it into a
 repository this lab has never seen.
 
@@ -571,7 +571,7 @@ build. For now, recognize the shape.
 ---
 
 ## STAGE 3 — PROMOTE & PACKAGE
-### Durable context + minimum sufficient task context · 12 min
+### Durable context + minimum sufficient task context · 19 min
 ### `DECONSTRUCT → BUILD`
 
 ### Objective
@@ -655,6 +655,61 @@ The transferable idea: **package by filtering a promoted fact store, not by re-s
 a conversation.** The format (YAML, JSON, flat file, database query) is implementation —
 the pattern is: tag once, filter many times, emit only what the next consumer needs.
 
+### 3.3 — Prove the package was worth building (7 min)
+
+You have just spent ten minutes hand-authoring a register and a filter. The fair
+question is whether any of that changed an answer. Find out by controlling the one
+variable that matters — **what is in the window** — and asking the identical question
+twice.
+
+Stage 0 asked Copilot cold, once, and had you challenge the answer. This is the
+controlled version: same model, same question, two different windows.
+
+**Ground truth, established back in Stage 1 and not in dispute:**
+`config/fee-schedule.yaml` states RTP at 0.35% with a USD 2.00 minimum. For a USD 100.00
+transfer, 0.35% is $0.35, which is under the floor — so the correct fee is **$2.00**,
+sourced from the committed config. You are scoring against a known answer, not guessing.
+
+**Run A — the window you'd have had without Stage 3.** Open a new chat and attach every
+source that mentions an RTP or fee rate, which is what a reasonable engineer would do
+before this lab taught them not to:
+
+> #file:docs/adr/ADR-0007-fee-schedule.md
+> #file:config/fee-schedule.yaml
+> #file:src/main/java/com/meridian/payments/legacy/LegacyPaymentUtils.java
+> #file:docs/JIRA_TICKETS.md
+>
+> What fee should Meridian charge on a USD 100.00 RTP transfer? Give the number, and
+> name the file you took it from.
+
+**Run B — the packaged window.** Open a *second* new chat. Paste only the output of
+`/context-package calculateFee-rtp` — nothing else, no files attached — and ask the
+identical question.
+
+Record both:
+
+| | Fee returned | Source it named | Did it mention the conflict is unresolved? |
+|---|---|---|---|
+| **A — everything attached** | | | |
+| **B — packaged** | | | |
+
+**Then answer the question that matters, in your stage readings:**
+
+1. Did the two runs agree? If they disagreed, which sources were in the window that
+   caused it?
+2. **If Run A returned the right number — how would you have known that, before you
+   knew the right answer?** Point at something *in Run A's own window* that
+   distinguishes the committed rate from the `Proposed` one and the legacy 1%. If
+   nothing in that window ranks its own sources, a correct answer there was luck you
+   couldn't audit.
+3. Which run told you a human still needs to resolve something? That gap is what
+   Stage 4 exists to close.
+
+> **Run A may well come back with $2.00.** That is not a failed exercise and you have
+> not done it wrong — question 2 is the whole point. A lab that only works when the
+> model makes a mistake would be teaching you to rely on it making one. The finding here
+> is about *auditability*, not about catching Copilot out.
+
 ### When to build what — a first look
 
 You'll use this table seriously in Stage 5.3 and in the capstone, but it's worth seeing
@@ -684,10 +739,14 @@ deployment targets it belongs in.
 - [ ] `context-for.sh calculateFee-rtp` run against your own register; package matches
       what you actually promoted
 - [ ] Confirmed that an unrelated work-unit tag excludes the tagged fact
+- [ ] Ran the A/B window comparison in two separate chats and recorded both rows (3.3)
+- [ ] Answered question 2 — what *in Run A's own window* would have let you audit its
+      answer — regardless of whether Run A was right
 - [ ] You can explain why the package is sufficient without being exhaustive
 
 > **Core rule:** The goal is not minimum context. It is minimum **sufficient** context —
 > and "sufficient" is a judgment only you can make about what you actually verified.
+> A correct answer you cannot audit is not the same as a verified one.
 
 ---
 

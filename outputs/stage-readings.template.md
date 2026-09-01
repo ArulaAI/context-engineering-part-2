@@ -113,13 +113,35 @@ Run it again for an unrelated work-unit tag. What dropped out?
 
 >
 
+**3.3 — The A/B window comparison.** Same question, two windows. Ground truth: $2.00,
+from `config/fee-schedule.yaml`.
+
+| | Fee returned | Source it named | Flagged the conflict as unresolved? |
+|---|---|---|---|
+| A — everything attached | | | |
+| B — packaged only | | | |
+
+Did they agree? If not, which source in Run A's window caused the difference?
+
+>
+
+**If Run A was right — what in its own window would have let you know that, before you
+knew the answer?** (If nothing there ranks its sources, a right answer was luck you
+couldn't audit.)
+
+>
+
+Which run told you a human still had something to resolve?
+
+>
+
 Why is the goal "minimum sufficient" context rather than strictly "minimum"?
 
 >
 
 ---
 
-## Stage 4 — Isolate & Handoff 🌟
+## Stage 4 — Boundaries & Handoff 🌟
 
 What happened when you told the investigator to "just make the edit yourself"?
 
