@@ -22,18 +22,23 @@ mvn test                   # baseline is green; keep it green
 
 ## Answering questions about this codebase
 
-These primitives are for general repository exploration. When a lab stage explicitly
-says "do not use scripts, agents, or skills" — for example, Stage 0's first-pass audit
-or Stage 7's unaided capstone — that instruction overrides this table for that stage.
+These primitives are for general repository exploration. Prefer the skill over the raw
+script when one exists — same output, already wired into chat. When a lab stage
+explicitly says "do not use scripts, agents, or skills" — for example, Stage 0's
+first-pass audit or Stage 7's unaided capstone — that instruction overrides this table
+for that stage.
 
-| Question | Use |
-|---|---|
-| Where should I even look for this? | `./scripts/context-map.sh <keyword>` |
-| Is a dependency real or just text? | `./scripts/authority.sh <Symbol> <file>` |
-| Shape of a large class | `./scripts/digest.sh <file>` or `./scripts/outline.sh <file>` |
-| What did the last test run show? | `./scripts/context-run.sh test` |
-| What changed? | `./scripts/context-run.sh diff` |
-| Where is a term used across the repo? | `./scripts/context-run.sh search <term>` |
+| Question | Skill | Underlying script |
+|---|---|---|
+| Where should I even look for this? | `/context-map <keyword>` | `./scripts/context-map.sh <keyword>` |
+| Is a dependency real or just text? | `/authority <Symbol> [file]` | `./scripts/authority.sh <Symbol> <file>` |
+| Is a method already tested? | `/test-gap [file]` | `./scripts/test-gap.sh [file]` |
+| Shape of a large class | `/outline <file>` | `./scripts/outline.sh <file>` (or `./scripts/digest.sh <file>` — bytecode-level, no skill wrapper) |
+| What did the last test run show? | `/context-run test` | `./scripts/context-run.sh test` |
+| What changed? | — | `./scripts/context-run.sh diff` (no skill wrapper) |
+| Where is a term used across the repo? | `/context-run search <term>` | `./scripts/context-run.sh search <term>` |
+| Package promoted facts for a work unit | `/context-package <work-unit>` | `./scripts/context-for.sh <work-unit>` |
+| Does a change satisfy the acceptance criteria? | `/verify-change` | `./scripts/verify-change.sh` |
 
 Do not attach whole files to answer questions the above can answer. Do not reach for a
 broad workspace search unless the question is genuinely broad and you cannot name a
