@@ -85,6 +85,22 @@ JRE-only installs omit it.
 **Fix:** `which jshell`. If missing, install a full JDK 17+ (not a JRE-only distribution)
 and confirm `java -version` and `jshell` both resolve before the session.
 
+### `authority.sh` says "jdeps not found on PATH — refusing to guess"
+
+**Cause:** `java` resolves but `jdeps` doesn't — most commonly on Windows, where the
+Oracle installer's `javapath` shim (`C:\Program Files\Common Files\Oracle\Java\javapath`)
+is placed ahead of the real JDK's `bin\` directory on `PATH`. `javapath` only forwards a
+couple of launchers; `jdeps`, `javap`, and other JDK tools are not in it even though a
+full JDK is installed on the same machine.
+
+**Fix:** `which jdeps`. If it's not found, locate the real JDK (`C:\Program
+Files\Java\jdk-<version>\bin` is the common install path) and prepend it to `PATH` for
+your terminal session, then confirm: `jdeps -version`. Before this guard existed,
+`authority.sh` silently reported `0 bytecode reference(s)` — a false "no dependency" —
+whenever `jdeps` was missing, instead of an error. If you're seeing an old capture of
+that behavior anywhere, it predates the fix; the script now refuses to answer rather than
+guess.
+
 ### `verify-change.sh` reports all four checks green with no RTP code implemented
 
 **Cause:** the working tree has drifted from the shipped baseline (a stray file, an

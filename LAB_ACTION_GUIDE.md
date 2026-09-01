@@ -1,21 +1,45 @@
 # Lab Action Guide — Context Engineering, Part 2 (Context Lifecycle)
 ## Advanced Track · Engineering · Meridian Financial · GitHub Copilot · Java · Windows
 
-> **Building on Part 1.** Part 1 taught you to control the context you give Copilot in a
-> single conversation: target the right file, reuse the cache, isolate a stale session,
-> match the mode to the task.
+> **Part 1 made one conversation cheap and accurate. Part 2 makes the work survive when
+> no single conversation can hold it.**
 >
-> Part 2 moves beyond one conversation. The problem is not just *what you attach*. It is
-> how context is **discovered, compressed, preserved, isolated, handed off, challenged,
-> and verified** across a task that outgrows a single chat.
+> Part 1 taught the four levers *inside* a session — **Target** (attach the right file),
+> **Reuse** (prompt caching), **Isolate** (clear a stale session), **Match** (right-size
+> the request) — and measured each one on the meter.
+>
+> Part 2 starts where the session ends. Nothing here is about making one prompt cheaper.
+> It is about what happens to your engineering state when the chat closes, when the next
+> actor isn't you, and when two sources in the repo disagree about a number nobody can
+> compile: **evidence and authority, durable facts with provenance, capability boundaries
+> between roles, deterministic enforcement, and rehydration.** Part 1 never covers any of
+> those, and none of them fit inside a single conversation by definition.
 
 > **The question this lab answers:**
-> *How do you engineer context so the work stays correct even when the task outgrows one chat?*
+> *How do you engineer context so the work stays correct across the breaks — between
+> sessions, between actors, and between the evidence and the decision?*
 
 > **The harder question this lab also answers, and the one that actually matters once
 > the workshop is over:**
 > *Can you construct the right context mechanism when the supplied helpers don't solve
 > your problem?*
+
+### This lab is deliberately split across sessions
+
+You will not carry one chat from Stage 0 to Stage 7. The lab forces a session break at
+five points, and every artifact you build exists to survive one:
+
+| Break | Where | What has to survive it |
+|---|---|---|
+| 1 | Stage 0.2 — cold first-pass chat | nothing (that's the baseline) |
+| 2 | Stage 4.1 — investigator agent | your Stage 1–3 findings, via `.context/` |
+| 3 | Stage 4.5 — implementer agent | the human decision, via `.workflow/HANDOFF.md` |
+| 4 | Stage 5.1 — brand-new reviewer chat | the diff and the criteria, nothing else |
+| 5 | Stage 6.1 — completely fresh chat | the entire engineering state, from disk alone |
+
+That constraint is the lab. If your context lives only in the conversation, it does not
+reach the next stage — and you will find that out at break 5, when a fresh model is asked
+to reconstruct the whole task from what you wrote down.
 
 This lab runs one workflow from beginning to end — MFIN-2088, adding RTP transfer fees
 to Meridian's payment service — and progressively replaces ad hoc context usage with a
@@ -30,25 +54,42 @@ Every script output shown below was captured from a real run against this repo; 
 are estimated. Stage durations are working estimates, not captured timings — see
 [the time-budget note](#time-budget) after the Quick Reference table.
 
+**How this guide is formatted — three containers, three meanings, used consistently
+end to end:**
+
+- **A single trigger** (a slash command or one-line terminal command) sits in inline
+  code, no fence: `` In Copilot Chat: **`/context-map RTP`** — or in a terminal:
+  `./scripts/context-map.sh RTP`. ``
+- **A multi-sentence prompt meant to be pasted verbatim into Copilot Chat** is always a
+  `>` blockquote. Never a plain fence — a plain fence means something else below.
+- **Captured tool or agent output** is always a plain fenced block, always preceded by a
+  bold label: `**Real output:**` for a multi-line transcript actually captured from a run
+  against this repo, `**Expected:**` for a one-line prescriptive result you haven't
+  produced yourself yet.
+
+If you can't tell what a block is from its shape and label alone, that's a bug in this
+guide — say so.
+
 ---
 
 ## Quick Reference
 
 | Stage | Duration | What you do | Core Pattern | Mode |
 |---|---:|---|---|---|
-| 0: The Helpful Trap | 7 min | Attempt MFIN-2088 normally, audit Copilot's claims | Baseline | Use |
+| 0: The Helpful Trap | 7 min | Vote on instinct, ask Copilot, challenge its claims | Baseline | Use |
 | 1: Discover Before You Retrieve | 10 min | Map where truth lives; deconstruct authority | Context mapping + authority | Use → Deconstruct → Adapt |
 | 2: Compress Before Context | 10 min 🌟 | Reduce noisy tool output; deconstruct how the reducer works | Pre-model evidence reduction | Use → Deconstruct |
 | 3: Promote & Package | 12 min | Author your own register from your own findings | Context lifecycle | Deconstruct → Build |
-| 4: Isolate & Handoff | 14 min 🌟 | Separate investigation from implementation, cross a human gate | Context boundaries + HITL | Use → Deconstruct |
+| 4: Boundaries & Handoff | 14 min 🌟 | Separate investigation from implementation, cross a human gate | Context boundaries + HITL | Use → Deconstruct |
 | 5: Challenge & Bound | 14 min 🌟 | Fresh-context review, a deterministic bound, one check you build | Independent evaluation + enforcement | Use → Build |
-| 6: Rehydrate & Prove | 5 min | Start fresh, reconstruct the task from durable artifacts | Rehydration + proof | Use |
-| 7: Build Beyond the Harness | 30 min 🌟 | Recognition check on a new problem, then build your own context-optimization tool with Copilot | Independent transfer + construction | Build |
+| 6: Rehydrate & Prove | 9 min | Reconstruct the task from artifacts alone, then measure what that saved | Rehydration + proof | Use |
+| 7: Build Beyond the Harness | 35 min 🌟 | Recognition check on a new problem, build a reducer, then regenerate the kit for your own repo | Independent transfer + construction | Build |
 
-**Total: ~102 minutes.** Every stage is required — Stage 7 is where you prove
-the rest of the lab transferred by building a working tool you take home.
+**Total: ~111 minutes.** Every stage is required — Stage 7 is where you prove
+the rest of the lab transferred by building a working tool and seeding it into a
+repository this lab has never seen.
 
-Record every reading in `outputs/stage-readings.template.md` as you go.
+Starting in Stage 1, record every reading in `outputs/stage-readings.template.md` as you go.
 
 ---
 
@@ -107,80 +148,148 @@ The task cannot be completed safely by reading everything into one conversation.
 ---
 
 ## STAGE 0 — THE HELPFUL TRAP
-### Audit Copilot's claims · 7 min
+### Vote, ask, challenge · 7 min
 
-### Objective
+### Goal
 
-Copilot will give you a helpful, plausible answer to MFIN-2088 — possibly even a correct
-one. The engineering question is not whether it's right, but whether you can tell.
+Start with the feature request the way you might in normal day-to-day work: give
+Copilot the task and ask for an implementation approach.
 
-### 0.1 — Before you try anything: activate what you already know
+Then challenge the answer before acting on it.
 
-You have done this before, even without a name for it. Answer in one or two sentences,
-before you open the ticket:
+The objective is **not** to catch Copilot making a mistake. Its answer may be correct,
+partially correct, or incorrect.
 
-> When context on a task gets noisy, or two sources disagree, what do you currently do?
+The question is:
 
-Write it in `outputs/stage-readings.template.md`. You'll compare it against your Stage 6
-and Stage 7 answers later — that comparison is most of the point of this lab.
+> **Can you tell which parts of the answer are established by engineering evidence, and
+> which parts still require proof or judgment?**
 
-### 0.2 — Attempt the ticket normally
+### 0.1 — 30-Second Baseline
 
-Open `docs/JIRA_TICKETS.md` and read MFIN-2088. Then, in a plain Copilot chat, try to
-plan the implementation:
+Before opening the feature request, answer this quick question:
 
-```
-Review MFIN-2088 and the repository directly. For this first pass, do not invoke any
-repository helper scripts, skills, or custom agents. Tell me where you would implement
-the RTP change, what fee behavior should apply, and how you would approach the
-implementation. Do not modify files.
-```
+> **When two sources in a repository disagree, what do you normally do first?**
 
-### 0.3 — Audit the response
+Choose the option closest to your current workflow:
 
-Copilot will make several claims. Pick 3–4 of them and classify each:
+**A.** Search for more context — Git history, related documentation, tickets, or
+comments.
 
-| Category | Meaning |
-|---|---|
-| **Verified fact** | A claim you can confirm from a specific, citable source |
-| **Inference** | A claim that follows from evidence but adds an interpretive step |
-| **Recommendation** | A suggested action — may be sound, but is not itself evidence |
-| **Unresolved decision** | A choice between options that no source in the repo settles |
+**B.** Check executable evidence — tests, build output, runtime behavior, or dependency
+analysis.
 
-For each claim, write down: **what evidence establishes it?** Not "Copilot said so" —
-the file, the line, the commit, the status field. If you can't name the evidence, the
-claim is unverified regardless of whether it's correct.
+**C.** Identify which source should be authoritative for the specific claim you are
+trying to establish.
 
-Then check these three things yourself:
+**D.** Ask Copilot to compare the sources and recommend which one to trust.
 
-1. **Search for "RTP" in `src/main`.** Zero hits — the feature doesn't exist yet.
-2. **Open both `config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md`.**
-   They state different RTP rates.
-3. **Search for "fee" or "rate" broadly.** `LegacyPaymentUtils` has many rate literals
-   and looks relevant. You have not yet established whether it is live or current.
+**E.** Escalate to the owning engineer or domain expert when the repository cannot
+settle the question.
 
-Record in your stage readings: which of Copilot's claims were verified facts, and which
-were inferences or recommendations you cannot yet verify?
+There is no universally correct answer.
 
-### 0.4 — Name the problem
+Your facilitator may ask you to respond with **A/B/C/D/E** in chat, through a quick
+poll, or by a show of hands.
 
-Whether Copilot gave you a correct answer, a partially correct answer, or a wrong one,
-the engineering problem is the same:
+Keep your answer in mind. We will return to this question later in the lab.
 
-> **You cannot verify the answer without first sorting which sources to trust.**
+### 0.2 — Ask Copilot for a First-Pass Approach
 
-There is enough information in this repo to do MFIN-2088 correctly — it just isn't sorted
-by what to trust. A correct answer you can't verify is as dangerous as a wrong one you
-can't catch. The rest of this lab builds the machinery for sorting.
+Open:
+
+`docs/JIRA_TICKETS.md`
+
+Find:
+
+`MFIN-2088`
+
+Now open a **new, plain GitHub Copilot chat**.
+
+For this first pass, do not use any of the repository's context-engineering helpers.
+We want to see what happens when Copilot works directly from the engineering evidence
+available for the feature.
+
+Use the following prompt:
+
+> Review MFIN-2088 using only engineering evidence in `src/`, `config/`,
+> `docs/JIRA_TICKETS.md`, and `docs/adr/`.
+>
+> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `outputs/`, `.context/`,
+> `.workflow/`, `.github/`, repository helper scripts, skills, or custom agents.
+>
+> Tell me:
+> - where you would implement the RTP change,
+> - what fee behavior should apply,
+> - and how you would approach the implementation.
+>
+> Do not modify files.
+
+Read Copilot's response, but **do not implement its plan yet**.
+
+Your answer may look completely reasonable. That is expected.
+
+### 0.3 — What Context Would You Actually Trust?
+
+Look back at Copilot's response.
+
+Pick one important conclusion it made — for example:
+
+- where RTP should be implemented,
+- which fee rule should apply,
+- or whether the legacy implementation matters.
+
+Now ask:
+
+1. **What repository evidence did Copilot use to reach that conclusion?**
+2. **Which of those sources would you actually trust to make the engineering decision?**
+3. **What evidence is still missing before you would make the change?**
+
+You do not need to write anything down or resolve the question yet.
+
+#### Facilitator Checkpoint
+
+Copilot had access to plenty of repository context.
+
+The problem was not simply that it needed more.
+
+Some context was useful.
+Some was conflicting.
+Some looked relevant but may not be authoritative.
+Some may not be needed at all.
+
+> **More context is not automatically better context.**
+
+In the next stages, we will learn how to:
+
+- discover the evidence that matters,
+- establish which sources can actually prove a claim,
+- and reduce unnecessary context before it reaches Copilot.
+
+### Stage 0 Takeaway
+
+> **The problem is not necessarily missing context.**
+> **The problem is unsorted context.**
+
+We need a systematic way to answer questions such as:
+
+- What claim are we trying to establish?
+- What evidence is relevant to that claim?
+- What can each source actually prove?
+- Which source has authority when evidence conflicts?
+- When does the repository stop being sufficient and require human judgment?
+
+That is what we will start solving in **Stage 1**.
 
 ### Success Criteria — Stage 0
 
-- [ ] Answered "what do you currently do" before opening the ticket
-- [ ] Attempted MFIN-2088 without any of this lab's scripts
-- [ ] Classified 3–4 of Copilot's claims as verified fact / inference / recommendation /
-      unresolved decision, with evidence named for each
-- [ ] Found the rate disagreement between `config/fee-schedule.yaml` and `docs/adr/ADR-0007`
-- [ ] You can state why the problem is *unsorted context*, not *missing context*
+- [ ] Gave a first-instinct answer (A–E) before opening the ticket
+- [ ] Attempted MFIN-2088 in a plain Copilot chat, bounded to `src/`, `config/`,
+      `docs/JIRA_TICKETS.md`, and `docs/adr/` — no lab scripts, skills, or agents
+- [ ] Picked one of Copilot's conclusions and identified what repository evidence it
+      drew on, which of those sources you'd actually trust, and what evidence is still
+      missing before acting on it
+- [ ] Can state why the problem is *unsorted context*, not *missing context*
 
 ---
 
@@ -190,224 +299,125 @@ can't catch. The rest of this lab builds the machinery for sorting.
 
 ### Objective
 
-Before loading implementation details, find out **where the relevant truth lives** and
-which sources deserve more trust than others — then move beyond the scaffold and prove you
-can pick the right evidence primitive for a claim this lab's script was never built for.
+Decide what is allowed into the context window before anything enters it. Every step
+below answers one question — *can this source settle this claim?* — and anything that
+can't is either verified first or left out.
+
+> Part 1 asked "which file should I attach?" This stage asks the question underneath it:
+> **is the thing I'm about to attach even true?** A stale rate in an ADR and a live rate
+> in committed config look identical once they're both sitting in the window. The model
+> cannot tell them apart. You have to, before they get there.
+
+> The script behind every step is hardcoded to this Meridian scenario on purpose — a
+> worked example to take apart, not a library to take home. Each also ships as a Copilot
+> skill (`.github/skills/`) that runs the same script and relays its output unedited.
+> Use the skill. What transfers is the pattern underneath, which the "No script?" line
+> after each step shows you — and in Stage 7 you regenerate the whole kit for your own
+> repo.
 
 ### 1.1 — Build the context map (USE)
 
-```bash
-./scripts/context-map.sh RTP
-```
+In Copilot Chat: **`/context-map RTP`** — or in a terminal: `./scripts/context-map.sh RTP`
+(same script either way; the skill just relays its output verbatim).
 
-Real output:
+**Expected:** a routing table naming two disagreeing sources — `config/fee-schedule.yaml`
+(0.35% + $2 minimum, committed) and `docs/adr/ADR-0007-fee-schedule.md` (Status:
+Proposed, 0.30% flat). No file contents printed, no resolution offered — just where to
+look next.
 
-```
-CONTEXT MAP — "RTP"
-=====================================================
-Affected domains           src/main/java/com/meridian/payments  (fee logic — PaymentService)
-Relevant symbols           calculateFee(BigDecimal, String)  [handles WIRE/ACH/SWIFT — no RTP branch yet]
-Contracts                  none — no RTP-specific interface exists
-Configuration              config/fee-schedule.yaml:16:rtp_percent: 0.0035          # RTP — 0.35% (new, MFIN-2088)  [authoritative committed config]
-Architecture decisions     docs/adr/ADR-0007-fee-schedule.md  [STATUS: Proposed — verify before trusting]
-Tests                      none — src/test has no RTP test yet
-Runtime/dependency bounds  none — RTP introduces no new library dependency
-Ticket / objective         docs/JIRA_TICKETS.md  (6 mention(s))
+Two sources now claim the same number, and **both would fit in your context window
+without complaint.** Note which one you'd have attached if the map hadn't flagged the
+other.
 
-Configuration and an architecture decision both mention RTP — resolve
-which is authoritative before writing code (diff their rates by hand; there is
-no compiler check for this, since RTP doesn't exist in code yet).
-
-This is a routing table, not an answer. It tells you where to look next, not what
-you'll find there.
-```
-
-Notice what it does *not* do: it never prints a file's contents. It tells you there are
-two disagreeing sources; it does not resolve the disagreement for you.
-
-**The portable version — what you'd type in a repo with no `context-map.sh`.**
-The script's underlying job is to build a routing table: where does concept X appear, and
-in which category of file (config, source, test, doc, ticket)? The two raw commands that
-replicate that in any repo:
-
-```bash
-# Find every file where the keyword appears (routing table without categories)
-grep -rl "RTP" src/ config/ docs/ test/ 2>/dev/null
-
-# For each hit, see which line — to distinguish config values from comments
-grep -rn "RTP" src/ config/ docs/ test/ 2>/dev/null
-```
-
-The script adds category labels ("Configuration," "Architecture decisions," etc.) by
-classifying files by their path prefix — that categorization is the reusable idea, not the
-label names this lab chose. In a repo without the script, glance at the hit paths and
-apply the same mental grouping yourself: `config/` = committed config, `docs/adr/` = ADR,
-`src/test/` = test coverage. The grep gives the same hits; you supply the category
-judgment the script hard-codes. Copilot can write you a one-pass awk script to group
-grep hits by path prefix in about 30 seconds — that is the wrapper, not the concept.
+No script or skill? `grep -rl "RTP" src/ config/ docs/ test/` gives the same hits; you
+supply the category grouping (`config/` = committed config, `docs/adr/` = ADR) the script
+automates. The keyword isn't hardcoded either — `/context-map SWIFT` returns the same
+shape filled with SWIFT's own answers.
 
 ### 1.2 — Compare search with authority (USE)
-
-`PaymentService` appears to depend on the retired `LegacyPaymentUtils`. Check with a plain
-text search first:
 
 ```bash
 grep -n "LegacyPaymentUtils" src/main/java/com/meridian/payments/PaymentService.java
 ```
 
-Three hits, including an `import`. Now check with the compiler:
+**Expected: 3 hits** — an import and two comments. On that evidence you'd attach
+`LegacyPaymentUtils` as relevant context. Now check it properly.
 
-```bash
-./scripts/authority.sh
-```
+In Copilot Chat: **`/authority LegacyPaymentUtils`** — or in a terminal:
+`./scripts/authority.sh`.
 
-Real output:
+**Expected: 0 bytecode references — VERDICT: no compiled dependency detected.** Text
+search would have put an entire dead class into your window, carrying a hardcoded 1%
+rate that contradicts the committed schedule. Grep says "maybe"; the compiler says no.
 
-```
-Q: does PaymentService depend on LegacyPaymentUtils?
+No script or skill? `mvn -q compile` then `jdeps -v -cp target/classes
+target/classes/.../PaymentService.class | grep LegacyPaymentUtils` is the whole
+mechanism — ships with any JDK 17+. `SYMBOL`/`SRC` aren't hardcoded either: point it at
+`NotificationService` instead (`/authority NotificationService`) and it reports 1 real
+bytecode reference — same tool, verdict flips to "grep and jdeps agree."
 
-grep — text (tier 3)
-    9:import com.meridian.payments.legacy.LegacyPaymentUtils;
-    235:     * Fee logic copy-pasted from LegacyPaymentUtils - should be centralized.
-    238:        // Copy-paste from LegacyPaymentUtils.calculateFee() - technical debt
-    => 3 hit(s)  ::  textual presence detected
+> If it ever reports 0 references for something you know is called, `jdeps` isn't on
+> your `PATH` — it refuses to guess rather than answer wrong (see Troubleshooting).
 
-jdeps — bytecode (tier 1)
-    => 0 bytecode reference(s)
+### 1.3 — DECONSTRUCT: which ladder, and why
 
-VERDICT: no compiled dependency detected.
+Two authority ladders live in this repo — not the same one twice:
 
-  3 textual reference(s), 0 bytecode dependencies.
-  No compiled dependency from PaymentService to LegacyPaymentUtils.
-
-  Inspect the 3 textual reference(s) separately before classifying their
-  role — they may be imports, comments, string literals, or same-package
-  usage that jdeps does not distinguish from absence.
-```
-
-In this case, inspecting the three hits reveals an unused import and two comments —
-the dependency is copy-paste, not a call. The compiler wins for this question. But not every question has a compiler answer — the
-RTP rate disagreement in 1.1 does not, because RTP doesn't exist in code yet.
-
-### 1.3 — DECONSTRUCT: what makes `authority.sh` right for *this* question, specifically?
-
-Open `scripts/authority.sh` and answer these before moving on — write your answers in
-`outputs/stage-readings.template.md`, not just in your head:
-
-1. Which of `authority.sh`'s ladder — `bytecode/compiler > authoritative committed
-   config > current documentation > semantic search result > model inference` — is
-   hard-coded to *this* claim (dependency existence), and which part of the ladder is
-   the reusable idea?
-2. `authority.sh` picks `jdeps` because the claim is "does class A depend on class B" —
-   a question bytecode can answer directly. Write the general recipe in one sentence,
-   without naming Java or `jdeps` at all: **state the claim → enumerate candidate
-   evidence → pick the source authorized to settle *that kind* of claim → prefer
-   machine-verifiable evidence when the claim is machine-verifiable → escalate to a
-   human when it isn't.**
-3. The RTP-rate disagreement in 1.1 is a claim no tier-1 tool can settle. Why not? What
-   *kind* of claim is it (hint: it's not about what the code does — it's about what the
-   business decided)?
-
-**The portable version — what you'd actually type in a repo that has no `authority.sh`.**
-This lab's script is a 70-line wrapper around two commands. Strip the wrapper and this is
-what's left, runnable in *any* Maven-or-Gradle Java repo, today, with no lab tooling:
-
-```bash
-# tier 3 — text search (what everyone already does)
-grep -n "SomeSuspectClass" src/main/java/path/to/CallerClass.java
-
-# tier 1 — bytecode (what actually settles it)
-mvn -q compile   # or: gradle compileJava
-jdeps -v -cp target/classes target/classes/path/to/CallerClass.class | grep SomeSuspectClass
-```
-
-If `grep` finds hits and `jdeps` finds zero, you have the same false positive this lab
-demonstrated — regardless of whose codebase you're standing in. `jdeps` ships with every
-JDK 17+ install; there's nothing here to install, request, or wait on IT for. The
-*script* is this lab's convenience; the *two commands above* are the transferable skill.
-Copilot can write you a one-line wrapper for these two commands in about the same time it
-takes to ask for one — the wrapper was never the hard part.
+| Ladder | Lives in | Ranks |
+|---|---|---|
+| `bytecode/compiler > AST/parser > regex/text > semantic search > model recall` | `scripts/authority.sh` | **techniques** for a code fact |
+| `bytecode/compiler > authoritative contract or committed config > current implementation > current documentation > semantic search result > model inference` | `config/fee-schedule.yaml` | **sources** for a business fact |
 
 ### 1.4 — ADAPT: a claim `jdeps` cannot answer
 
-Here is a different claim about this exact codebase, one `authority.sh` was never built
-to check:
+> **Claim:** the test suite exercises the RTP boundary condition — an amount where 0.35%
+> falls under the USD 2.00 minimum.
 
-> **Claim:** the current test suite exercises the RTP boundary condition — an amount
-> where 0.35% of the amount falls under the USD 2.00 minimum.
+`jdeps` is the wrong tool here — it answers "does A depend on B," not "does a test
+exercise this input." In Copilot Chat: **`/test-gap`** — or in a terminal:
+`./scripts/test-gap.sh`.
 
-Before running anything, answer: **is `jdeps` the right tier-1 tool for this claim?**
-(It isn't — `jdeps` answers "does A depend on B," not "does a test exercise this input
-range." Bytecode dependency analysis has nothing to say about test coverage.)
+**Expected:** no RTP test found — honest verdict is "not yet exercised." State it in
+`authority.sh`'s own format (`Q: / tier N / result / VERDICT:`) in your stage readings.
+The point isn't the answer, it's picking the right primitive for a claim the lab's script
+doesn't cover.
 
-The general authority recipe from 1.3 still applies — the recipe doesn't change, only
-the tool does. Run `./scripts/test-gap.sh` and read the two tables it produces. Neither
-table directly answers "is the boundary amount tested," but together they tell you whether
-`calculateFee` has *any* RTP test yet.
-
-State your verdict in `authority.sh`'s own format — `Q: / <primitive> — tier N /
-=> result / VERDICT:` — in your stage readings. There is currently no RTP test at all
-(the feature isn't implemented yet), so the honest verdict is "not yet exercised." The
-value of this exercise isn't the answer — it's that you picked the right tool for a
-claim the lab's script doesn't cover.
-
-**The portable version of `test-gap.sh`:** it runs two `grep` passes — one over source,
-one over tests — and cross-references them:
-
-```bash
-# Which public methods have no test mention?
-grep -roh '\bpublic.*(' src/main/ --include='*.java' | sort -u > /tmp/methods.txt
-grep -roh '\b\w\+(' src/test/ --include='*.java' | sort -u > /tmp/tested.txt
-comm -23 /tmp/methods.txt /tmp/tested.txt
-
-# Where does domain logic live?
-grep -rn 'fee\|rate\|amount' src/main/ --include='*.java'
-```
-
-Two questions that transfer to any repo: "what's untested?" and "where does this domain
-concept live?" — `test-gap.sh` is one implementation of those questions for this
-codebase.
+No script or skill? `grep -roh '\bpublic.*(' src/main/` vs. `grep -roh '\b\w\+(' src/test/`,
+then `comm -23` — same two questions ("what's untested," "where does this concept live")
+in any repo.
 
 ### 1.5 — Retrieve only the next slice
 
-```bash
-./scripts/outline.sh src/main/java/com/meridian/payments/PaymentService.java
-```
+In Copilot Chat: **`/outline src/main/java/com/meridian/payments/PaymentService.java`** —
+or in a terminal: `./scripts/outline.sh src/main/java/com/meridian/payments/PaymentService.java`.
 
-**17 lines describing a 284-line file**, including:
+**Expected: 17 lines describing a 284-line file**, including `calculateFee` at lines
+237–248. Jump there, select 237–248, use `#selection` in chat — not `#file:`.
 
-```
-method     237-248   (12L)  public BigDecimal calculateFee(BigDecimal amount, String paymentType)
-```
+No script or skill? `grep -n 'public\|private\|protected' Foo.java` (Java),
+`grep -n 'def \|class '` (Python), `grep -n 'func '` (Go) — shape without content, in
+any language.
 
-**The portable version:** `outline.sh` uses `awk` to print method signatures and line
-ranges — no AST parser, no IDE plugin. The equivalent for any language:
-
-```bash
-# Java/Kotlin
-grep -n 'public\|private\|protected' Foo.java
-# Python
-grep -n 'def \|class ' foo.py
-# Go
-grep -n 'func ' foo.go
-```
-
-The point is orientation, not precision: 17 lines describing a 284-line file. Anything
-that gives you shape without giving you content is the same pattern.
-
-Open the file, jump to line 237, select lines 237–248, and use `#selection` in chat —
-not `#file:`. That's the only part of the file this task needs right now.
+None of `scripts/*.sh` or their skills need to exist in your own repo. Each "No script or
+skill?" line above is a 30-second Copilot ask, not a script you'd hand-author — once you
+know the question (grep for evidence, `jdeps` for proof, `awk` for shape), asking Copilot
+to write the one-off wrapper is faster than this guide was to read. What's worth taking
+home isn't the scripts, it's this: point Copilot at your own noisy command, ask it to
+wrap it the same way, and save it as a skill so `/whatever-you-called-it` answers the
+question every time instead of you re-typing the ask.
 
 ### Success Criteria — Stage 1
 
 - [ ] Context map generated; both disagreeing RTP sources named
 - [ ] `grep` vs `authority.sh` compared on `LegacyPaymentUtils` — 3 hits / 0 bytecode deps
-- [ ] Wrote the general authority recipe in claim-agnostic terms (1.3)
-- [ ] Correctly identified `jdeps` as the wrong tool for the test-coverage claim, and ran
-      a different primitive instead (1.4)
+- [ ] Ran both scripts against a second keyword/symbol — mechanism held, result changed
+- [ ] Can name the two authority ladders — one for code facts, one for business facts —
+      and which applies to a new claim before running anything
+- [ ] Correctly identified `jdeps` as the wrong tool for the test-coverage claim, ran a
+      different primitive instead (1.4)
 - [ ] Retrieved only `calculateFee` via outline + `#selection`, not the whole file
-- [ ] You can state where the authoritative answer for the RTP rate comes from, and why
-      no compiler check applies to it
+- [ ] Can state where the authoritative answer for the RTP rate comes from, and why no
+      compiler check applies to it
 
 > **Core rule:** First establish where truth lives. Then decide which tool is allowed to
 > settle it. Then retrieve.
@@ -441,9 +451,8 @@ Raw output: **~45 lines** even in this small, dependency-cached repo (a real pro
 
 ### 2.2 — The compressed path (USE)
 
-```bash
-./scripts/context-run.sh test
-```
+In Copilot Chat: **`/context-run test`** — or in a terminal: `./scripts/context-run.sh test`
+(same script; the skill returns its digest unedited, nothing summarized on top of it).
 
 Real output:
 
@@ -463,7 +472,7 @@ asserted.
 
 ### 2.3 — DECONSTRUCT: which fields are the decision, and what if the reducer lies?
 
-Two questions, both worth writing down:
+Two questions:
 
 1. Of the six lines in the digest above, which ones does an engineer actually need to
    decide "is it safe to keep going"? (`5 passed` / `0 failed` / the regression line —
@@ -503,9 +512,8 @@ repo it was never written for.
 
 ### 2.4 — Search, compressed and cross-checked (USE)
 
-```bash
-./scripts/context-run.sh search RTP
-```
+In Copilot Chat: **`/context-run search RTP`** — or in a terminal:
+`./scripts/context-run.sh search RTP`.
 
 Real output:
 
@@ -529,8 +537,8 @@ you don't have to remember to look for it every time.
 ### 2.5 — DECONSTRUCT: the five properties of any reducer
 
 Every reducer — this lab's `context-run.sh`, a CI summary, a log filter — has five
-properties. You already answered some of them for `context-run.sh test` in 2.3. Now name
-all five explicitly, in `outputs/stage-readings.template.md`:
+properties. You already answered some of them for `context-run.sh test` in 2.3. Here are
+all five, named explicitly:
 
 1. **DECISION:** What engineering question does this reduction serve?
    (`context-run.sh test` → "did the tests pass, and did anything regress?")
@@ -578,51 +586,49 @@ found in Stages 1–2, not by copying a finished one.
 cp .context/context-register.template.yaml .context/context-register.yaml
 ```
 
-Open it. `.context/README.md` documents the required shape — read that first if the
-comments in the template aren't enough. The template has the seven required top-level
-keys (`objective`, `verified_facts`, `authoritative_sources`, `decisions`, `constraints`,
-`superseded_sources`, `unknowns`) with guidance comments, but **no promoted facts and no
-decisions** — those are yours to add, and only from things you have actually verified so
-far.
+`.context/README.md` documents the required shape. The template has the seven required
+top-level keys (`objective`, `verified_facts`, `authoritative_sources`, `decisions`,
+`constraints`, `superseded_sources`, `unknowns`) with guidance comments, but **no
+promoted facts and no decisions** — those are yours to add, from what you actually
+verified in Stages 1–2, not from memory or a finished example.
 
-Fill in, from your own Stage 1–2 work:
+**You decide the content. Let Copilot handle the shape.** The register's parser is a
+plain `awk` state machine, not a YAML library — two levels of nesting, one scalar per
+line, exact indentation required. Getting that right by hand is where this stage tends to
+derail people, not the thinking behind it. In Copilot Chat: **`/promote-facts`**, then
+describe your own facts in plain English when it asks — for example: *"the RTP fee is
+0.35% of the amount with a $2 minimum, from `config/fee-schedule.yaml`; PaymentService
+has 0 compiled dependencies on `LegacyPaymentUtils`, from `authority.sh`'s bytecode
+check; never call `LegacyPaymentUtils`; the ADR states a conflicting rate and is still
+marked Proposed, not Superseded."*
+
+Copilot never decides what counts as a verified fact — you say it, out loud, to the
+prompt. It's only doing the formatting; read `.github/prompts/promote-facts.prompt.md` if
+you want to see exactly what it's been told not to do. Typing the YAML yourself is just
+as valid; match the same shape rules either way:
 
 - `objective`: one line, in your own words.
-- `verified_facts`: the RTP rate and its source (from 1.1's context map / 2.4's search),
-  the WIRE rate, and the `LegacyPaymentUtils` finding (from 1.2's authority check) — each
-  with a `source` and `source_type`, the way `authority.sh`'s output named its own tiers.
+- `verified_facts`: your own facts from Stages 1–2, each with a `source` and
+  `source_type`.
 - `authoritative_sources`: what you'd cite if someone asked "why do you believe that."
-- `constraints`: anything you already know must hold (e.g., never call
-  `LegacyPaymentUtils` — you proved why in Stage 1).
-- `unknowns`: anything where the formal organizational record hasn't caught up to the
-  technical evidence. As of Stage 3, the evidence strongly favors `config/fee-schedule.yaml`
-  — but `docs/adr/ADR-0007` is still formally marked `Proposed`, not `Superseded`. That
-  formal supersession has not yet been recorded, so it belongs here — **do not** write a
-  `decisions` entry for it yet. That happens in Stage 4.4, when a human ratifies and records
-  the already-evidenced precedence. Leave `decisions:` empty.
-
-The template and `.context/README.md` together document the required shape. Writing your
-own values from what you actually verified is the exercise.
+- `constraints`: anything you already know must hold, with evidence behind it.
+- `unknowns`: anything where the formal record hasn't caught up to the technical
+  evidence — like the ADR still reading `Proposed`. Leave `decisions:` empty; that's
+  Stage 4.4's job, after a human actually resolves it.
 
 ### 3.2 — Build the next context package
 
-```bash
-./scripts/context-for.sh calculateFee-rtp
-```
+In Copilot Chat: **`/context-package calculateFee-rtp`** — or in a terminal:
+`./scripts/context-for.sh calculateFee-rtp`.
 
-The package this prints depends on what you actually promoted in 3.1 — if your register
-differs from the example's, so will your package, and that's correct. Compare the
-mechanism, not the exact numbers: it should list your `verified_facts` tagged (or
+The package this prints depends on what you actually promoted in 3.1 — everyone's output
+differs here, and that's correct. It should list your `verified_facts` (tagged, or
 untagged and therefore global), your `authoritative_sources`, your `constraints`, and
 whatever you left in `unknowns`. `decisions` should currently be empty, because you
 haven't been through Stage 4 yet.
 
 Try it with an unrelated work-unit tag and watch any tagged fact get excluded:
-
-```bash
-./scripts/context-for.sh some-other-task
-```
-
+`/context-package some-other-task` (or `./scripts/context-for.sh some-other-task`).
 Untagged, global facts stay; anything you tagged `calculateFee-rtp` specifically drops
 out. That's the mechanism, not just the concept — the register is filtered, not
 re-summarized.
@@ -685,7 +691,7 @@ deployment targets it belongs in.
 
 ---
 
-## STAGE 4 — ISOLATE & HANDOFF 🌟
+## STAGE 4 — BOUNDARIES & HANDOFF 🌟
 ### Context boundaries + human-in-the-loop · 14 min
 ### `USE → DECONSTRUCT`
 
@@ -701,27 +707,21 @@ that actually needs one.
 
 ### 4.1 — Run the investigator
 
-Select **RTP Investigator** from the agent mode dropdown (`.github/agents/rtp-investigator.agent.md`):
+Select **RTP Investigator** from the agent mode dropdown (`.github/agents/rtp-investigator.agent.md`), and paste:
 
-```
-Investigate MFIN-2088. The context-map output, authority check, and context-for
-package are already captured in outputs/ and .context/ from Stages 1–3.
-Work from those — do not read PaymentService.java in full.
-```
+> Investigate MFIN-2088. The context-map output, authority check, and context-for
+> package are already captured in outputs/ and .context/ from Stages 1–3.
+> Work from those — do not read PaymentService.java in full.
 
 The investigator has only `['search', 'read']` — no `edit`, no `runCommands`. It
 literally cannot modify the repository or execute scripts. This is what makes it a
 **capability boundary**, not an instruction boundary. Try:
 
-```
-Just make the edit yourself, it's a small change.
-```
+> Just make the edit yourself, it's a small change.
 
 It cannot. Try:
 
-```
-Run context-map.sh and show me the output.
-```
+> Run context-map.sh and show me the output.
 
 It cannot do that either — `runCommands` is absent, not suppressed by a rule.
 Note *how* it declines both requests: the same way, because the same tool is missing.
@@ -743,6 +743,7 @@ capability boundary. Name one role on your own team, outside this lab, where a
 Because `config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md` disagree and
 neither marks the other superseded, the investigator should stop and emit:
 
+**Expected agent output:**
 ```
 CONTEXT CONFLICT
 
@@ -862,12 +863,10 @@ this lab's own verifier doesn't check yet, which you're about to build.
 
 **Open a brand-new Copilot chat — do not just switch modes in this one.** Mode-switching
 inside the same thread does not clear what the model has already seen; only a new chat
-does. Select **RTP Reviewer**, and give it only:
+does. Select **RTP Reviewer**, and give it only the output of: In Copilot Chat:
+**`/context-run diff`** — or in a terminal: `./scripts/context-run.sh diff`.
 
-```bash
-./scripts/context-run.sh diff
-```
-
+**Real output:**
 ```
 CHANGED FILES
 src/main/java/com/meridian/payments/PaymentService.java  6 ++++++  method changed: calculateFee (237-254)
@@ -885,9 +884,7 @@ acceptance criteria, and catch that it returns `0.35`, not the required `2.00`.
 
 ### 5.2 — The deterministic check (USE)
 
-```bash
-./scripts/verify-change.sh
-```
+In Copilot Chat: **`/verify-change`** — or in a terminal: `./scripts/verify-change.sh`.
 
 Real output, against the seeded fixture:
 
@@ -955,12 +952,10 @@ boundary case without a test noticing."
 You already built the primitive for this in **Stage 1.4** — reuse it, or rebuild it if
 you skipped the condensed path there:
 
-```
-Write a throwaway script that reads src/test/java's RTP test method(s) and reports
-whether any tested amount falls strictly between 0 and 571.43 (where 0.35% of the
-amount is under the USD 2.00 minimum). Report file, line, amount, and a pass/fail
-verdict. Do not paste the test file into this conversation.
-```
+> Write a throwaway script that reads src/test/java's RTP test method(s) and reports
+> whether any tested amount falls strictly between 0 and 571.43 (where 0.35% of the
+> amount is under the USD 2.00 minimum). Report file, line, amount, and a pass/fail
+> verdict. Do not paste the test file into this conversation.
 
 Run it. It will report **FAIL** — no boundary test exists yet.
 
@@ -1000,6 +995,14 @@ The **artifact-choice** for the detector and the test are different:
 | The boundary unit test | Permanent (committed) | It's a Jira DoD requirement, not optional infrastructure |
 
 ### 5.4 — Bound the repair loop (USE)
+
+This one stays a terminal command on purpose, unlike everything else so far — `loop.sh`
+isn't a stateless question-in, answer-out tool like `authority.sh` or `context-run.sh`,
+it's a stateful gate: it tracks attempt counts and verdict hashes across multiple calls
+in `.workflow/state.json`. That's a hook's shape, not a skill's, and it already has one —
+`.github/hooks/bin/loop-bound.sh` reads that same state file and denies Copilot's next
+edit outright once the budget's spent. Running `loop.sh` here yourself is you watching
+the exact mechanism the hook enforces automatically during real agent-driven work.
 
 ```bash
 ./scripts/loop.sh reset
@@ -1100,7 +1103,7 @@ test you added should report pass.
 ---
 
 ## STAGE 6 — REHYDRATE & PROVE
-### Fresh session + proof · 5 min
+### Fresh session + proof · 9 min
 
 ### Objective
 
@@ -1113,30 +1116,61 @@ Open a completely fresh chat. Do not copy anything from before. Provide only:
 - `.context/context-register.yaml` (your own, from Stages 3 and 4.4 — update it first:
   mark the RTP fact's `applies_to` work as done, if you're tracking that)
 - `.workflow/HANDOFF.md`
-- A fresh package: `./scripts/context-for.sh calculateFee-rtp`
+- A fresh package — in Copilot Chat: **`/context-package calculateFee-rtp`**, or in a
+  terminal: `./scripts/context-for.sh calculateFee-rtp`
 
 ### 6.2 — Rehydrate
 
 Ask:
 
-```
-Based only on these artifacts:
+> Based only on these artifacts:
+>
+> 1. What is already complete?
+> 2. What is still unresolved?
+> 3. What is the next engineering action?
+> 4. Which constraints must not be violated?
+> 5. Which sources are authoritative for the next decision?
 
-1. What is already complete?
-2. What is still unresolved?
-3. What is the next engineering action?
-4. Which constraints must not be violated?
-5. Which sources are authoritative for the next decision?
-```
+Compare the response to the actual repository state: **`/verify-change`** (or
+`./scripts/verify-change.sh`) should report `VERDICT: PASS`, and `git log` should show
+the fix.
 
-Compare the response to the actual repository state: `./scripts/verify-change.sh` should
-report `VERDICT: PASS`, and `git log` should show the fix.
+### 6.3 — What rehydration actually saved you
+
+Part 1 measured the cost of a *request*. This measures the cost of a *restart* — the
+number Part 1 has no way to produce, because it never lets a session end.
+
+Open **Agent Debug Logs → Summary** (the same instrument from Part 1's Stage 0) and
+record what 6.2 cost:
+
+| | Input tokens | Model turns | Tool calls |
+|---|---|---|---|
+| **A — Rehydrated** (6.2: three artifacts, one question) | | | |
+| **B — Cold re-derivation** (below) | | | |
+
+Now run B. In a second fresh chat, with **no artifacts attached at all**, ask the same
+five questions:
+
+> This repository implements RTP transfer fees for ticket MFIN-2088. Without me giving
+> you any notes or context files: what is already complete, what is still unresolved,
+> what is the next engineering action, which constraints must not be violated, and which
+> sources are authoritative for the next decision?
+
+Record B's numbers, then compare — not just the cost, but the **answers**. B has the
+entire repository available to it and still has to rediscover the rate conflict from
+scratch, with no record that a human ever resolved it. Check specifically: does B know
+the ADR was superseded, and *who decided that*?
+
+The gap between A and B is what the register and the handoff are worth. It is the only
+number in this lab that could not have been produced in a single session.
 
 ### Success Criteria — Stage 6
 
 - [ ] Fresh session reconstructed the task correctly from artifacts alone
 - [ ] No previous chat history was used
 - [ ] Repository state (verify-change.sh, git log) matched the rehydrated summary
+- [ ] Recorded A vs. B input tokens, turns, and tool calls (6.3)
+- [ ] Can state what B got *wrong or couldn't know* — not just what it cost extra
 - [ ] You can state which pieces of context were deliberately preserved and which were
       allowed to disappear
 
@@ -1146,7 +1180,7 @@ report `VERDICT: PASS`, and `git log` should show the fix.
 ---
 
 ## STAGE 7 — BUILD BEYOND THE HARNESS 🌟
-### Smooth transfer · 30 min (7.1 ~5 min, 7.2 ~25 min)
+### Smooth transfer · 35 min (7.1 ~5 min, 7.2 ~30 min)
 ### Our prepared mechanisms still exist, but they do not solve this new context problem. Build the missing mechanism yourself.
 
 ### Why this stage exists
@@ -1161,51 +1195,63 @@ kind of context problem than the one `context-map.sh` or `verify-change.sh` were
 
 ### 7.1 — Recognition check (~5 min)
 
-Open `src/main/java/com/meridian/payments/PaymentService.java` and read the class-level
-comment block at the top, and `processPayment()`'s Step 3. Separately, open
-`src/main/java/com/meridian/payments/CurrencyConverter.java` and read its own class
-comment.
+A question nobody asked you in Stages 0–6, about a method no stage has opened:
 
-> **Is `PaymentService` actually using `CurrencyConverter` for foreign-exchange
-> conversion, or is it doing something else? If it's something else, what — and is that
-> your problem to fix right now?**
+> **MFIN-2088 adds a fee for RTP transfers. Refunds run through `refundPayment()`.
+> When an RTP payment is refunded, what happens to the fee — is it refunded,
+> charged again, or neither? And is answering that your problem right now?**
 
-In your stage readings, write:
-1. Which pattern(s) apply — and what deterministic evidence supports your answer?
+Search first, the way you would on any Monday: `grep -n "fee\|Fee" ` over
+`refundPayment()`'s body (lines 254–283). **Expected: zero hits** — which reads like
+"refunds don't touch fee logic, nothing to worry about."
+
+Now check the call path instead of the text, and read what the reverse request actually
+sets. In your stage readings, write:
+
+1. Which pattern(s) apply, and what deterministic evidence settles it — not what the
+   text search implied?
 2. Should you fix this inside MFIN-2088? Why or why not?
 
 <details>
 <summary>Check your answer (open only after writing yours)</summary>
 
-**Pattern:** Authority + Discover. Two comment-only grep hits, zero method calls, zero
-constructor wiring. `CurrencyConverter` is architecturally absent — known tech debt
-already tracked as MFIN-2041. The correct move: record the finding, don't fix it in this
-change — Stage 4's `do_not_change` discipline applies.
+**Pattern:** Authority + Discover. The text search is a false negative: `refundPayment()`
+contains no fee code itself, but it builds a reverse `PaymentRequest` and hands it to
+`processPayment()` — so it inherits whatever the payment path does with fees. Worse, it
+never calls `setPaymentType()` on that reverse request, so the payment type arrives
+`null`. Any fee logic keyed on payment type is therefore reading an unset field on every
+refund. Zero grep hits, real coupling — the same shape as Stage 1.2's `LegacyPaymentUtils`
+false positive, inverted.
+
+**Scoping:** out of scope. MFIN-2088's acceptance criteria are about what
+`calculateFee(amount, "RTP")` returns, nothing about the refund path. And unlike most
+findings in this repo, **no ticket tracks this one** — which is not a reason to fix it
+here. Record it, raise a ticket, leave the change alone. Stage 4's `do_not_change`
+discipline applies to debt you discover mid-task, not just debt somebody already filed.
 
 </details>
 
 ### 7.2 — Build Your Own Context-Optimization Tool (~25 min)
 
-You will build a working tool — a reducer, a verifier, a filter, or a hook — that you
-can take home.
+You will build a working Copilot skill — a reducer, a verifier, or a filter, wired into
+chat as `/your-tool-name`, not a script that only runs if someone remembers it exists —
+that you can take home.
 
-**Step 1 — Pick your noise problem (2 min).** Choose ONE noisy command:
+**Step 1 — Inspect the tool (2 min).** Everyone builds the same reducer this time — for
+`mvn dependency:tree`:
 
-| Category | Example command |
-|---|---|
-| Dependency tree | `mvn dependency:tree`, `npm ls`, `pip freeze` |
-| Build/compiler warnings | `mvn compile -X`, `gcc -Wall`, `tsc --noEmit` |
-| Git history / diff | `git log --oneline -50`, `git blame <file>` |
-| Static analysis | `eslint .`, `checkstyle`, `golint ./...` |
-| Logs | `tail -100 /var/log/...`, `kubectl logs ...`, `docker logs ...` |
-| Test output | only from your own repo or a different test format |
-| Your own | ___ |
+```bash
+mvn dependency:tree
+```
 
-If you want real output right now, `mvn dependency:tree` and `mvn compile -X` both work
-in this repo. **Prefer a command from your own codebase** — that is the version of this
-exercise that actually leaves your Monday morning with a tool you use. Avoid choosing
-`mvn test` from this repo: `context-run.sh test` already solved that exact problem in
-Stage 2, and the success criteria require a different noise category.
+Run it. Count the raw lines. Look for what's actually noise for the decision you'd use
+this for — duplicate versions of the same artifact, conflicting transitive dependencies,
+something pulled in that has no business being there. Every ecosystem has the same shape
+of pain (`npm ls`, `pip freeze`, `go mod graph`, `cargo tree`) — if you'd rather leave
+with a tool you'll actually use Monday, run your own repo's equivalent instead and spec
+against that; nothing in Step 2 changes either way. Avoid substituting `mvn test` (or its
+equivalent) if you go that route: `context-run.sh test` already solved that exact problem
+in Stage 2.
 
 **Step 2 — Spec the tool (3 min).** Write this in `outputs/stage-readings.template.md`
 **BEFORE touching Copilot.** This is the gate — the spec proves you understood the
@@ -1223,32 +1269,79 @@ model context is one of the core Context Engineering decisions — it must happe
 Copilot writes the reducer.
 
 **Step 3 — Build with Copilot (10 min).** Paste your five-line spec and ask Copilot to
-build a script. Then:
+build a **Copilot skill** — `.github/skills/<your-tool-name>/SKILL.md` — not a bare
+script sitting in `scripts/` disconnected from chat. Match the shape of every tool you've
+used all lab (`context-map`, `authority`, `context-run`, `context-package`,
+`verify-change`): frontmatter (`name`, `description`, `context: fork`,
+`disable-model-invocation: true`), an input contract, a one-line `Run:` workflow calling
+the underlying command, and an output contract that says *return the digest only, no
+prose*. The script it wraps can be as small as one `awk`/`grep` pipeline — the skill file
+is what makes it something you type `/your-tool-name` for instead of re-explaining the
+ask from scratch every time. Then:
 
 1. Read what Copilot produces against your spec — does it retain only KEEP and exclude
    DISCARD?
-2. Run it against the real command (or simulated output).
+2. Invoke your new skill against the real command (or simulated output).
 3. **Force a failure** — pipe from `/dev/null`, introduce a compile error, or point at a
-   nonexistent path. Confirm non-zero exit. Record the exit code.
+   nonexistent path. Confirm non-zero exit, and that the skill reports it instead of
+   guessing. Record the exit code.
 4. Iterate if needed — the iteration IS the learning.
 
-**Step 4 — Decide where it lives (3 min).** Using the artifact-choice table from Stage 3:
+**Step 4 — Confirm it's the right primitive (3 min).** This is the same decision you
+previewed in Stage 3's "when to build what" table, now with your own tool as the input.
+A skill is the default here because a dependency tree (or its equivalent) is a
+deterministic-command-wrap — same shape as every tool this lab gave you. Check yours
+actually fits before you're done:
 
-| Target | When |
-|---|---|
-| Disposable script | One-off, won't recur |
-| Shell alias (`~/.bashrc`) | Personal convenience |
-| Repo script (`scripts/`) | Team utility, worth versioning |
-| Copilot hook (`.github/hooks/`) | Automatically trigger on a matching lifecycle event |
-| CI gate | Non-negotiable rule on every merge |
+| What you built | Lives as | Why |
+|---|---|---|
+| Answers a question, same command every time, stable output shape | **Skill** (`.github/skills/`) | What you almost certainly just built — matches this lab's own pattern exactly |
+| No command underneath, just a consistent formatting/reasoning ask | **Prompt file** (`.github/prompts/`) | No tool to wrap — like Stage 3's `/promote-facts` |
+| Must automatically block or allow an action, not just answer when asked | **Hook** (`.github/hooks/`) | The only primitive that can deny — see `loop-bound.sh` from Stage 5.4 |
+| Must hold on every future change, independent of whether Copilot is even open | CI gate | Outside the harness entirely — the backstop when nobody's in a chat |
+| Genuinely one-off, won't recur | Disposable — don't save it | Building infrastructure for a question you'll never ask twice is waste |
 
-Pick ONE and justify why. If the choice calls for operationalizing it (a script, a hook,
-a CI step), do so and run it once from that location. If the honest answer is "disposable,"
-say so — choosing not to build infrastructure is a valid engineering decision.
+State which row yours landed in and why. If it's not actually a skill — say a hook fits
+better because the real need is "block this automatically," not "answer when asked" —
+say so and explain the mismatch rather than forcing it into skill shape. If the honest
+answer is disposable, say that too; choosing not to build infrastructure is a valid
+engineering decision.
 
 **Step 5 — Record (2 min).** In your stage readings, add: the noisy command and raw line
 count, the reduced output and its line count, what was kept/discarded/why, the failure
 mode tested, where the tool lives, and why that deployment choice.
+
+**Step 6 — Seed it into your own repo (5 min).** You just built one tool by hand, so you
+know what the pieces are. Now generate the rest for a codebase that isn't Meridian's.
+
+Open **your own repository** in a second VS Code window, copy
+`.github/prompts/context-kit.prompt.md` into it, and run **`/context-kit`** there.
+
+It will read your build file and layout, ask only what it can't determine itself, and
+generate the `context-map`, `context-run test`, `authority`, and `outline` equivalents
+for *your* stack — your test reporter, your dependency-proof tool, your directory
+categories — then run each one and force it to fail to prove it fails closed.
+
+If you don't have a work repo handy right now, run it against any repo you have locally;
+the point is watching it port to a codebase whose layout it wasn't written for. This is
+the answer to "these scripts are Meridian-specific, how do I use them Monday" — you
+don't port them by hand, you regenerate them.
+
+### Take it further on your own (optional)
+
+Dependency trees aren't the only noisy command worth taming — they're just the one
+everyone in the room shares. On your own time, run the same DECISION/RAW SOURCE/KEEP
+/DISCARD/FAIL CLOSED spec from Step 2 against one of these instead:
+
+| Category | Example command |
+|---|---|
+| Build/compiler warnings | `mvn compile -X`, `gcc -Wall`, `tsc --noEmit` |
+| Git history / diff | `git log --oneline -50`, `git blame <file>` |
+| Static analysis | `eslint .`, `checkstyle`, `golint ./...` |
+| Logs | `tail -100 /var/log/...`, `kubectl logs ...`, `docker logs ...` |
+
+Same caveat as Step 1: skip `mvn test` (or its equivalent) — Stage 2 already solved
+that one.
 
 ### Success Criteria — Stage 7
 
@@ -1256,11 +1349,14 @@ mode tested, where the tool lives, and why that deployment choice.
       scoped the fix decision
 - [ ] (7.2) Wrote the 5-property spec (DECISION/RAW SOURCE/KEEP/DISCARD/FAIL CLOSED)
       BEFORE prompting Copilot
-- [ ] (7.2) The tool runs against a real command and produces reduced output
-- [ ] (7.2) The tool fails closed — forced failure demonstrated, non-zero exit confirmed
+- [ ] (7.2) Built as a Copilot skill (`.github/skills/`), invoked as `/your-tool-name`,
+      not a bare script nobody would remember to run
+- [ ] (7.2) The skill runs against a real command and produces reduced output
+- [ ] (7.2) The skill fails closed — forced failure demonstrated, non-zero exit confirmed
 - [ ] (7.2) Can state what was deliberately discarded and why
-- [ ] (7.2) Selected and justified the appropriate home for the mechanism; operationalized it where appropriate (a disposable script is a valid choice if you can say why)
-- [ ] (7.2) Did NOT copy the RTP reducer pattern verbatim — different noise category
+- [ ] (7.2) Confirmed skill was the right primitive for what you built — or named which
+      of prompt file / hook / CI gate / disposable fit better, and why
+- [ ] (7.2) Built the reducer from your own 5-property spec, not a copied answer
 
 > **Core rule:** the ten patterns are not a checklist. They are questions — *what's
 > actually true, what can be computed, what deserves to survive, who needs it next,
@@ -1283,19 +1379,34 @@ scripts.
 | 3 | Reduce | What's the minimum signal this decision needs, and what can be computed outside the model? |
 | 4 | Promote | Which discoveries deserve to survive this conversation, with what provenance? |
 | 5 | Package | What's the minimum sufficient context for the next specific action? |
-| 6 | Isolate | Does this role need a capability boundary, not just a prompt boundary? |
+| 6 | Constrain | Does this role need a capability boundary, not just a prompt boundary? |
 | 7 | Handoff | What transfers to the next actor — the decisions, or the whole conversation? |
 | 8 | Verify | Which acceptance criteria are non-negotiable enough to become an executable check? |
 | 9 | Review | Should the evaluator inherit the producer's reasoning, or only curated evidence? |
 | 10 | Rehydrate | Can the engineering state be reconstructed from durable artifacts alone? |
 
+### What you take home
+
+Not the Meridian scripts — they were the worked example, and they were hardcoded to this
+codebase on purpose so you'd have something concrete to take apart. Three things
+actually leave the room with you:
+
+1. **The ten questions above**, which are stack-agnostic and tool-agnostic.
+2. **`.github/prompts/context-kit.prompt.md`** — copy this one file into any repo and
+   run `/context-kit` to regenerate the whole kit for that stack. You ran it once
+   already in Stage 7.2 Step 6; that was the rehearsal.
+3. **The skill you built yourself in Stage 7.2**, already sitting in `.github/skills/`
+   where `/your-tool-name` reaches it.
+
+Anything in this repo that isn't one of those three was scaffolding.
+
 ### Final reflection
 
-Go back to your Stage 0 answer — "what do you currently do when context is noisy or
-conflicting." Look at the tool you just built in the capstone. What would you change
-about that Stage 0 answer today?
+Think back to the option (A–E) you chose at the very beginning, in Stage 0. Would you
+make the same choice now? Looking at the tool you just built in the capstone: what would
+you establish before deciding which source to trust?
 
-Record in `outputs/stage-readings.template.md`.
+This is a verbal close — no write-up required.
 
 ---
 

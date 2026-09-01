@@ -25,6 +25,22 @@ if [ ! -f "$CLASS" ]; then
   mvn -B -q test-compile >/dev/null 2>&1 || { echo "cannot compile; jdeps needs bytecode"; exit 3; }
 fi
 
+# Fail closed: a missing jdeps must not silently look like "0 bytecode references."
+# jdeps ships with every JDK 17+, but some PATH setups only expose java/jshell — e.g.
+# Windows' Oracle "javapath" shim shadows the real JDK bin/ directory. Without this
+# guard, tier-1 silently degrades to "grep found nothing extra," which reads exactly
+# like a genuine no-dependency verdict. That is the same fail-open hazard Stage 2
+# teaches you to check for in context-run.sh — this script did not used to guard
+# against it.
+if ! command -v jdeps >/dev/null 2>&1; then
+  echo "authority.sh: jdeps not found on PATH — refusing to guess at a tier-1 verdict." >&2
+  echo "jdeps ships with the JDK (17+), but some installs put a java-only shim (e.g." >&2
+  echo "Windows' javapath) ahead of the real JDK bin/ directory on PATH. Find your" >&2
+  echo "JDK's bin/ (java -version shows the version; check Program Files\\Java\\jdk-*\\bin" >&2
+  echo "on Windows) and put it on PATH ahead of any shim, then retry." >&2
+  exit 3
+fi
+
 echo "Q: does ${NAME} depend on ${SYMBOL}?"
 echo
 
