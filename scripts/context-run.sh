@@ -16,6 +16,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 3
 
+OUT_DIR=".context"
+mkdir -p "$OUT_DIR"
+
+# Escape a literal pipe so a grepped line can never break a markdown table row.
+esc() { printf '%s' "$1" | sed 's/|/\\|/g'; }
+
 SUBCOMMAND="${1:-}"
 
 case "$SUBCOMMAND" in
@@ -145,40 +151,56 @@ if [ "$SUBCOMMAND" = "diff" ]; then
 
   RAW="$(git diff 2>/dev/null)"
   RAW_LINES="$(printf '%s\n' "$RAW" | wc -l | tr -d ' ')"
-  STAT="$(git diff --stat 2>/dev/null)"
+  # --numstat (not --stat): tab-separated "added\tremoved\tpath", full path, never
+  # abbreviated. `git diff --stat` truncates long paths (e.g. to ".../PaymentService.java")
+  # once several files are in the diff, which silently breaks a full-path grep match —
+  # exactly the file Stage 5.1 most needs a correct stat for.
+  STAT="$(git diff --numstat 2>/dev/null)"
+  OUT_FILE="${OUT_DIR}/context-run-diff.md"
 
   if [ -z "$RAW" ]; then
-    echo "CHANGED FILES"
-    echo "(none — working tree matches the last commit)"
+    { echo "# Context Run — diff"; echo ""; echo "**CHANGED FILES**"; echo ""; echo "(none — working tree matches the last commit)"; } | tee "$OUT_FILE"
+    echo ""
+    echo "Saved to ${OUT_FILE}"
     exit 0
   fi
 
-  echo "CHANGED FILES"
-  git diff --name-only 2>/dev/null | while read -r f; do
-    [ -z "$f" ] && continue
-    STATLINE="$(printf '%s\n' "$STAT" | grep -F "$f" | head -1 | sed -E 's/^[^|]+\|//')"
-    if [[ "$f" == *.java ]] && [ -f "$f" ]; then
-      METHOD="$(./scripts/outline.sh "$f" 2>/dev/null | awk -v changed="$(git diff -U0 -- "$f" | grep -oE '^@@ -[0-9]+' | head -1 | grep -oE '[0-9]+')" '
-        /^  method/ {
-          split($2, r, "-")
-          if (changed+0 >= r[1]+0 && changed+0 <= r[2]+0) {
-            sig=$0; sub(/^  method[ \t]+[0-9]+-[0-9]+[ \t]+\([0-9]+L\)[ \t]+/, "", sig)
-            sub(/\(.*/, "", sig)
-            n=split(sig, w, /[ \t]+/); name=w[n]
-            print name" ("$2")"; found=1
+  {
+    echo "# Context Run — diff"
+    echo ""
+    echo "| File | Diff Stat | Method Changed |"
+    echo "|---|---|---|"
+    git diff --name-only 2>/dev/null | while read -r f; do
+      [ -z "$f" ] && continue
+      STATLINE="$(printf '%s\n' "$STAT" | awk -F'\t' -v f="$f" '$3==f {print "+"$1" -"$2; exit}')"
+      if [[ "$f" == *.java ]] && [ -f "$f" ]; then
+        METHOD="$(./scripts/outline.sh "$f" 2>/dev/null | awk -v changed="$(git diff -U0 -- "$f" | grep -oE '^@@ -[0-9]+' | head -1 | grep -oE '[0-9]+')" '
+          /^\| method \|/ {
+            split($0, cols, "|")
+            range = cols[3]; gsub(/^[ \t]+|[ \t]+$/, "", range); sub(/ .*/, "", range)
+            split(range, r, "-")
+            if (changed+0 >= r[1]+0 && changed+0 <= r[2]+0) {
+              sig = cols[4]; gsub(/^[ \t]+|[ \t]+$/, "", sig); gsub(/`/, "", sig)
+              sub(/\(.*/, "", sig)
+              n = split(sig, w, /[ \t]+/); name = w[n]
+              print name" ("range")"; found=1
+            }
           }
-        }
-        END { if (!found) print "(method not resolved)" }
-      ' | head -1)"
-      printf "%-22s %-10s method changed: %s\n" "$f" "$STATLINE" "$METHOD"
-    else
-      printf "%-22s %-10s\n" "$f" "$STATLINE"
-    fi
-  done
+          END { if (!found) print "(method not resolved)" }
+        ' | head -1)"
+        echo "| \`${f}\` | $(esc "$STATLINE") | ${METHOD} |"
+      else
+        echo "| \`${f}\` | $(esc "$STATLINE") | — |"
+      fi
+    done
 
-  DIGEST_LINES=$(($(git diff --name-only 2>/dev/null | wc -l | tr -d ' ') + 1))
+    DIGEST_LINES=$(($(git diff --name-only 2>/dev/null | wc -l | tr -d ' ') + 1))
+    echo ""
+    echo "NOISE REMOVED: raw \`git diff\` = ${RAW_LINES} lines; digest = ${DIGEST_LINES} lines"
+  } | tee "$OUT_FILE"
+
   echo ""
-  echo "NOISE REMOVED: raw \`git diff\` = ${RAW_LINES} lines; digest = ${DIGEST_LINES} lines"
+  echo "Saved to ${OUT_FILE}"
   exit 0
 fi
 
@@ -187,31 +209,40 @@ if [ "$SUBCOMMAND" = "search" ]; then
   TERM="${2:-}"
   [ -n "$TERM" ] || { echo "usage: context-run.sh search <term>" >&2; exit 3; }
 
+  TERM_SAFE="$(printf '%s' "$TERM" | tr -c 'A-Za-z0-9_-' '_')"
+  OUT_FILE="${OUT_DIR}/context-run-search-${TERM_SAFE}.md"
+
   RAW="$(grep -rn "$TERM" src/main config docs/adr docs/JIRA_TICKETS.md --include='*.java' --include='*.yaml' --include='*.md' 2>/dev/null)"
   RAW_COUNT="$(printf '%s\n' "$RAW" | grep -c . || true)"
 
   DEDUPED="$(printf '%s\n' "$RAW" | grep -v -E '^\s*\*|//\s*$' | sort -u -t: -k1,1 | head -20)"
   SHOWN_COUNT="$(printf '%s\n' "$DEDUPED" | grep -c . || true)"
 
-  echo "${RAW_COUNT} raw hits across $(printf '%s\n' "$RAW" | cut -d: -f1 | sort -u | grep -c .) files → ${SHOWN_COUNT} shown (dedup: comment/doc noise removed)"
-  echo ""
-  printf "%-36s %-6s %s\n" "FILE" "LINE" "EVIDENCE"
-  printf -- "--------------------------------------------------------------\n"
+  {
+    echo "# Context Run — search \"${TERM}\""
+    echo ""
+    echo "${RAW_COUNT} raw hits across $(printf '%s\n' "$RAW" | cut -d: -f1 | sort -u | grep -c .) files → ${SHOWN_COUNT} shown (dedup: comment/doc noise removed)"
+    echo ""
+    echo "| File | Line | Evidence |"
+    echo "|---|---|---|"
 
-  RATES=()
-  printf '%s\n' "$DEDUPED" | while IFS=: read -r file line content; do
-    [ -z "$file" ] && continue
-    trimmed="$(echo "$content" | sed 's/^[[:space:]]*//' | cut -c1-58)"
-    printf "%-36s %-6s %s\n" "$file" "$line" "$trimmed"
-  done
+    printf '%s\n' "$DEDUPED" | while IFS=: read -r file line content; do
+      [ -z "$file" ] && continue
+      trimmed="$(echo "$content" | sed 's/^[[:space:]]*//' | cut -c1-70)"
+      echo "| \`${file}\` | ${line} | \`$(esc "$trimmed")\` |"
+    done
+
+    echo ""
+    RATE_HITS="$(printf '%s\n' "$DEDUPED" | grep -E '[0-9]\.[0-9]+%|percent|[0-9]\.[0-9]{2,4}')"
+    if [ -n "$RATE_HITS" ] && printf '%s\n' "$DEDUPED" | grep -q 'config/' && printf '%s\n' "$DEDUPED" | grep -q 'docs/adr'; then
+      echo "> **RATE CROSS-CHECK:** config and an ADR both state a ${TERM} rate. Compare them by hand — THEY MAY DISAGREE."
+      echo ""
+    fi
+
+    echo "NOISE REMOVED: ${RAW_COUNT} lines → ${SHOWN_COUNT} lines"
+  } | tee "$OUT_FILE"
 
   echo ""
-  RATE_HITS="$(printf '%s\n' "$DEDUPED" | grep -E '[0-9]\.[0-9]+%|percent|[0-9]\.[0-9]{2,4}')"
-  if [ -n "$RATE_HITS" ] && printf '%s\n' "$DEDUPED" | grep -q 'config/' && printf '%s\n' "$DEDUPED" | grep -q 'docs/adr'; then
-    echo "RATE CROSS-CHECK: config and an ADR both state a ${TERM} rate. Compare them by hand — THEY MAY DISAGREE."
-  fi
-
-  echo ""
-  echo "NOISE REMOVED: ${RAW_COUNT} lines → ${SHOWN_COUNT} lines"
+  echo "Saved to ${OUT_FILE}"
   exit 0
 fi

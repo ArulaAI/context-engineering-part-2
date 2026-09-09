@@ -24,9 +24,10 @@ of attaching the whole thing.
 
 ## Output contract
 
-Return only the script's method/field list with line ranges. No prose introduction. No
-summary paragraph. No code, and do not paste the file's actual contents even if you can
-see them — the point is retrieving shape, not content.
+Return only the script's method/field table with line ranges, plus the final
+"Saved to .context/..." line. No prose introduction. No summary paragraph. No code, and
+do not paste the file's actual contents even if you can see them — the point is
+retrieving shape, not content.
 
 ## Rules
 

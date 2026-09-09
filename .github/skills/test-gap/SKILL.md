@@ -25,8 +25,9 @@ not from reading every source and test file into the conversation.
 
 ## Output contract
 
-Return only the script's two tables — test coverage gap, then fee logic computation
-sites. No prose introduction. No summary paragraph. No code.
+Return only the script's markdown output — the coverage table, the fee-logic table, the
+rate block, and the final "Saved to .context/..." line. No prose introduction. No
+summary paragraph beyond what the script itself prints.
 
 ## Rules
 

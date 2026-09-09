@@ -25,8 +25,9 @@ that never enters the window.
 
 ## Output contract
 
-Return only the script's digest, including its `NOISE REMOVED` line. No prose
-introduction. No summary paragraph. No code.
+Return only the script's digest, including its `NOISE REMOVED` line and (for `diff` and
+`search`) the final "Saved to .context/..." line. No prose introduction. No summary
+paragraph. No code.
 
 ## Rules
 

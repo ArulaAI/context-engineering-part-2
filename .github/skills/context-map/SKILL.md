@@ -25,9 +25,10 @@ routing table is cheap on purpose so it isn't mistaken for the answer itself.
 
 ## Output contract
 
-Return only the script's table, plus its one closing note if two categories disagree
-(e.g. configuration and an architecture decision both claim a rate). No prose
-introduction. No summary paragraph. No code.
+Return only the script's markdown table, plus its one closing note if two categories
+disagree (e.g. configuration and an architecture decision both claim a rate), plus the
+final "Saved to .context/context-map-\<keyword\>.md" line. No prose introduction. No
+summary paragraph. No code.
 
 ## Rules
 

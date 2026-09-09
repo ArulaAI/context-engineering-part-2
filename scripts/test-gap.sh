@@ -9,6 +9,9 @@
 # every source and test file and asking the model to work it out. The model orchestrates;
 # the script does the data processing; only this digest re-enters the context window.
 #
+# Output is GFM markdown (renders as real tables in Copilot Chat), printed to stdout and
+# saved to .context/test-gap-<ClassName>.md so it survives after the chat scrolls.
+#
 # Usage:
 #   ./scripts/test-gap.sh
 #   ./scripts/test-gap.sh src/main/java/com/meridian/payments/PaymentService.java
@@ -20,6 +23,7 @@ set -euo pipefail
 TARGET="${1:-src/main/java/com/meridian/payments/PaymentService.java}"
 MAIN_DIR="src/main/java"
 TEST_DIR="src/test/java"
+OUT_DIR=".context"
 
 if [ ! -f "$TARGET" ]; then
   echo "test-gap: no such file: $TARGET" >&2
@@ -27,6 +31,12 @@ if [ ! -f "$TARGET" ]; then
 fi
 
 CLASS_NAME="$(basename "$TARGET" .java)"
+OUT_FILE="${OUT_DIR}/test-gap-${CLASS_NAME}.md"
+
+# Escape a literal pipe so a grepped line can never break a markdown table row.
+esc() { printf '%s' "$1" | sed 's/|/\\|/g'; }
+
+mkdir -p "$OUT_DIR"
 
 # ---------------------------------------------------------------- public methods
 # Reuse the same brace-depth walk as outline.sh, but keep only public members
@@ -66,13 +76,6 @@ methods="$(
   ' "$TARGET"
 )"
 
-echo ""
-echo "=============================================================="
-echo " TEST COVERAGE GAP — $CLASS_NAME"
-echo "=============================================================="
-printf "%-26s %-12s %-8s %s\n" "METHOD" "LINES" "REFS" "STATUS"
-printf -- "--------------------------------------------------------------\n"
-
 # Strip line and block comments from the test sources ONCE, so that a method name
 # merely mentioned in a comment is not mistaken for a test that exercises it.
 # (This is not a hypothetical: the baseline suite lists the uncovered methods in a
@@ -83,52 +86,65 @@ TEST_SRC="$(
     | awk '/\/\*/ {inc=1} inc {if (/\*\//) inc=0; next} {print}'
 )"
 
-uncovered=0
-total=0
-while IFS=$'\t' read -r name lines; do
-  [ -z "$name" ] && continue
-  # A constructor is not a behaviour to cover; skip it.
-  [ "$name" = "$CLASS_NAME" ] && continue
-  total=$((total + 1))
-  # `|| true` matters: grep exits 1 on zero matches, which under `set -o pipefail`
-  # would abort the script at the first uncovered method — silently hiding the gaps.
-  refs=$(printf '%s\n' "$TEST_SRC" | { grep -o -E "[^A-Za-z0-9_]${name}[[:space:]]*\(" || true; } | wc -l | tr -d ' ')
-  if [ "$refs" -eq 0 ]; then
-    status="NO COVERAGE"
-    uncovered=$((uncovered + 1))
+{
+  echo "# Test Coverage Gap — ${CLASS_NAME}"
+  echo ""
+  echo "| Method | Lines | Refs | Status |"
+  echo "|---|---|---|---|"
+
+  uncovered=0
+  total=0
+  while IFS=$'\t' read -r name lines; do
+    [ -z "$name" ] && continue
+    # A constructor is not a behaviour to cover; skip it.
+    [ "$name" = "$CLASS_NAME" ] && continue
+    total=$((total + 1))
+    # `|| true` matters: grep exits 1 on zero matches, which under `set -o pipefail`
+    # would abort the script at the first uncovered method — silently hiding the gaps.
+    refs=$(printf '%s\n' "$TEST_SRC" | { grep -o -E "[^A-Za-z0-9_]${name}[[:space:]]*\(" || true; } | wc -l | tr -d ' ')
+    if [ "$refs" -eq 0 ]; then
+      status="**NO COVERAGE**"
+      uncovered=$((uncovered + 1))
+    else
+      status="covered"
+    fi
+    echo "| \`${name}\` | ${lines} | ${refs} | ${status} |"
+  done <<< "$methods"
+
+  echo ""
+  echo "**${uncovered} of ${total} public methods have no test referencing them.**"
+  echo ""
+
+  # ---------------------------------------------------------------- fee logic
+  echo "## Fee Logic — every computation site in \`${MAIN_DIR}\`"
+  echo ""
+  echo "| File | Line | Evidence |"
+  echo "|---|---|---|"
+
+  grep -rn -E 'calculateFee|0\.0025|0\.005|0\.015|0\.0035|2\.00|\bWIRE\b|\bACH\b|\bSWIFT\b|\bRTP\b' "$MAIN_DIR" \
+    --include='*.java' 2>/dev/null \
+    | grep -v -E '^\s*\*|//\s*$' \
+    | while IFS=: read -r file line content; do
+        trimmed="$(echo "$content" | sed 's/^[[:space:]]*//' | cut -c1-70)"
+        echo "| \`${file#$MAIN_DIR/}\` | ${line} | \`$(esc "$trimmed")\` |"
+      done
+
+  echo ""
+  echo "## Fee Rates Found in Source"
+  echo "_(these must agree with \`config/fee-schedule.yaml\`)_"
+  echo ""
+  RATE_LINES="$(grep -rn -E 'WIRE|RTP' "$MAIN_DIR" --include='*.java' -A2 2>/dev/null \
+    | grep -E 'multiply|BigDecimal\.valueOf|\* *0\.' || true)"
+  if [ -n "$RATE_LINES" ]; then
+    echo '```'
+    printf '%s\n' "$RATE_LINES"
+    echo '```'
   else
-    status="covered"
+    echo "_(none found)_"
   fi
-  printf "%-26s %-12s %-8s %s\n" "$name" "$lines" "$refs" "$status"
-done <<< "$methods"
-
-printf -- "--------------------------------------------------------------\n"
-printf "%d of %d public methods have no test referencing them.\n" "$uncovered" "$total"
-
-# ---------------------------------------------------------------- fee logic
-# Rate literals for fee-computation patterns in this repository.
-echo ""
-echo "=============================================================="
-echo " FEE LOGIC — every computation site in $MAIN_DIR"
-echo "=============================================================="
-printf "%-52s %-6s %s\n" "FILE" "LINE" "EVIDENCE"
-printf -- "--------------------------------------------------------------\n"
-
-grep -rn -E 'calculateFee|0\.0025|0\.005|0\.015|0\.0035|2\.00|\bWIRE\b|\bACH\b|\bSWIFT\b|\bRTP\b' "$MAIN_DIR" \
-  --include='*.java' 2>/dev/null \
-  | grep -v -E '^\s*\*|//\s*$' \
-  | while IFS=: read -r file line content; do
-      trimmed="$(echo "$content" | sed 's/^[[:space:]]*//' | cut -c1-58)"
-      printf "%-52s %-6s %s\n" "${file#$MAIN_DIR/}" "$line" "$trimmed"
-    done
+  echo ""
+  echo "Digest complete. Paste ONLY this output back into chat — not the files."
+} | tee "$OUT_FILE"
 
 echo ""
-echo "=============================================================="
-echo " FEE RATES FOUND IN SOURCE (these must agree with config/fee-schedule.yaml)"
-echo "=============================================================="
-grep -rn -E 'WIRE|RTP' "$MAIN_DIR" --include='*.java' -A2 2>/dev/null \
-  | grep -E 'multiply|BigDecimal\.valueOf|\* *0\.' \
-  | sed 's/^/  /' || echo "  (none found)"
-
-echo ""
-echo "Digest complete. Paste ONLY this output back into chat — not the files."
+echo "Saved to ${OUT_FILE}"

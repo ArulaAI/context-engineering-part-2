@@ -76,7 +76,7 @@ guide — say so.
 
 | Stage | Duration | What you do | Core Pattern | Mode |
 |---|---:|---|---|---|
-| 0: The Helpful Trap | 7 min | Vote on instinct, ask Copilot, challenge its claims | Baseline | Use |
+| 0: The Helpful Trap | 7 min | Ask Copilot cold, challenge its claims | Baseline | Use |
 | 1: Discover Before You Retrieve | 10 min | Map where truth lives; deconstruct authority | Context mapping + authority | Use → Deconstruct → Adapt |
 | 2: Compress Before Context | 10 min 🌟 | Reduce noisy tool output; deconstruct how the reducer works | Pre-model evidence reduction | Use → Deconstruct |
 | 3: Promote & Package | 19 min 🌟 | Author your own register, then prove it changed an answer | Context lifecycle + controlled comparison | Deconstruct → Build |
@@ -89,9 +89,9 @@ guide — say so.
 the rest of the lab transferred by building a working tool and seeding it into a
 repository this lab has never seen.
 
-Several stages ask you to compare two numbers or commit to an answer before scrolling on.
-Keep those wherever you like — a scratch file, a notebook, or out loud with your table.
-Nothing in this lab collects them.
+A few stages ask you to record a side-by-side comparison (token counts, two runs'
+answers). Keep those wherever you like — a scratch file, a notebook, or out loud with
+your table. Nothing in this lab collects them.
 
 ---
 
@@ -150,7 +150,7 @@ The task cannot be completed safely by reading everything into one conversation.
 ---
 
 ## STAGE 0 — THE HELPFUL TRAP
-### Vote, ask, challenge · 7 min
+### Ask, then challenge · 7 min
 
 ### Goal
 
@@ -167,34 +167,14 @@ The question is:
 > **Can you tell which parts of the answer are established by engineering evidence, and
 > which parts still require proof or judgment?**
 
-### 0.1 — 30-Second Baseline
+### 0.1 — Before You Open the Ticket
 
-Before opening the feature request, answer this quick question:
-
-> **When two sources in a repository disagree, what do you normally do first?**
-
-Choose the option closest to your current workflow:
-
-**A.** Search for more context — Git history, related documentation, tickets, or
-comments.
-
-**B.** Check executable evidence — tests, build output, runtime behavior, or dependency
-analysis.
-
-**C.** Identify which source should be authoritative for the specific claim you are
-trying to establish.
-
-**D.** Ask Copilot to compare the sources and recommend which one to trust.
-
-**E.** Escalate to the owning engineer or domain expert when the repository cannot
-settle the question.
-
-There is no universally correct answer.
-
-Your facilitator may ask you to respond with **A/B/C/D/E** in chat, through a quick
-poll, or by a show of hands.
-
-Keep your answer in mind. We will return to this question later in the lab.
+When two sources in a repository disagree, engineers reach for different first moves —
+searching for more context, checking executable evidence, deciding which source should
+be authoritative, asking Copilot to compare them, or escalating to a domain expert. None
+of those is wrong on its own, and there is no universally correct move. This lab builds
+a repeatable way to make that choice deliberately instead of by habit — starting with
+what happens when you skip straight to asking Copilot, below.
 
 ### 0.2 — Ask Copilot for a First-Pass Approach
 
@@ -233,21 +213,14 @@ Your answer may look completely reasonable. That is expected.
 
 ### 0.3 — What Context Would You Actually Trust?
 
-Look back at Copilot's response.
+Look back at Copilot's response and pick out one concrete conclusion it made — for
+example, where it said to implement the RTP change, which fee rule it picked, or
+whether it treated the legacy implementation as relevant.
 
-Pick one important conclusion it made — for example:
-
-- where RTP should be implemented,
-- which fee rule should apply,
-- or whether the legacy implementation matters.
-
-Now ask:
-
-1. **What repository evidence did Copilot use to reach that conclusion?**
-2. **Which of those sources would you actually trust to make the engineering decision?**
-3. **What evidence is still missing before you would make the change?**
-
-You do not need to write anything down or resolve the question yet.
+For that one conclusion, notice three things: which repository evidence Copilot actually
+drew on, whether that evidence would hold up as authoritative on its own, and what's
+still missing before anyone should act on it. Copilot had plenty of context available —
+the gap, if there is one, is rarely a shortage of material.
 
 #### Facilitator Checkpoint
 
@@ -285,12 +258,9 @@ That is what we will start solving in **Stage 1**.
 
 ### Success Criteria — Stage 0
 
-- [ ] Gave a first-instinct answer (A–E) before opening the ticket
 - [ ] Attempted MFIN-2088 in a plain Copilot chat, bounded to `src/`, `config/`,
       `docs/JIRA_TICKETS.md`, and `docs/adr/` — no lab scripts, skills, or agents
-- [ ] Picked one of Copilot's conclusions and identified what repository evidence it
-      drew on, which of those sources you'd actually trust, and what evidence is still
-      missing before acting on it
+- [ ] Reviewed one of Copilot's conclusions against the repository evidence it drew on
 - [ ] Can state why the problem is *unsorted context*, not *missing context*
 
 ---
@@ -478,19 +448,19 @@ asserted.
 
 ### 2.3 — DECONSTRUCT: which fields are the decision, and what if the reducer lies?
 
-Two questions:
+Of the six lines in the digest above, three carry the actual decision: `5 passed`,
+`0 failed`, and the regression-signal line. Everything else `mvn test` printed —
+dependency resolution, plugin banners, timing — was noise *for this decision*, not noise
+in general.
 
-1. Of the six lines in the digest above, which ones does an engineer actually need to
-   decide "is it safe to keep going"? (`5 passed` / `0 failed` / the regression line —
-   the rest is formatting.) Everything else `mvn test` printed — dependency resolution,
-   plugin banners, timing — was noise *for this decision*, not noise in general.
-2. **What would this digest say if Maven itself failed to run** — a compile error,
-   Maven not installed, no network to fetch a dependency? A reducer that can't tell "zero
-   tests failed because everything passed" apart from "zero tests failed because nothing
-   ran" is worse than useless — it's a false green wearing the clothes of a real one.
-   Check: does `context-run.sh test` distinguish those two cases today? (It's meant to —
-   confirm for yourself rather than taking this guide's word for it.) This is the same
-   failure mode you'll be asked to avoid when you build your own check in Stage 5.
+The harder case: what would this digest say if Maven itself failed to run — a compile
+error, Maven not installed, no network to fetch a dependency? A reducer that can't tell
+"zero tests failed because everything passed" apart from "zero tests failed because
+nothing ran" is worse than useless — it's a false green wearing the clothes of a real
+one. `context-run.sh test` is built to catch this: point it at a broken build (a compile
+error, or `mvn` unreachable) and it reports `BUILD FAILED` instead of a clean digest,
+never a false `0 failed`. This is the same failure mode Stage 5 has you guard against in
+your own check.
 
 **The portable version — this exact reducer for a build tool that isn't Maven.** Open
 `scripts/context-run.sh` and read the `test` subcommand. Underneath the formatting, it
@@ -727,22 +697,18 @@ Record both, however you ran them:
 | **A — everything attached** | | | |
 | **B — packaged** | | | |
 
-**Then answer the question that matters:**
+**What the comparison shows:**
 
-1. Did the two runs agree? If they disagreed, which sources were in the window that
-   caused it?
-2. **If Run A returned the right number — how would you have known that, before you
-   knew the right answer?** Point at something *in Run A's own window* that
-   distinguishes the committed rate from the `Proposed` one and the legacy 1%. If
-   nothing in that window ranks its own sources, a correct answer there was luck you
-   couldn't audit.
-3. Which run told you a human still needs to resolve something? That gap is what
-   Stage 4 exists to close.
+Run A may well come back with the right number, $2.00 — that's not a failed exercise.
+The point isn't whether Run A gets it right; it's whether the answer is *auditable*.
+Everything attached to Run A is a flat pile of sources with no ranking — nothing in that
+window distinguishes the committed rate from the `Proposed` ADR or the legacy 1%. A
+correct answer out of that window is luck you couldn't check. Run B's package carries
+its sources with their tier — committed config vs. Proposed ADR — so its answer can be
+traced back to *why* it's right, not just *that* it happens to be right.
 
-> **Run A may well come back with $2.00.** That is not a failed exercise and you have
-> not done it wrong — question 2 is the whole point. A lab that only works when the
-> model makes a mistake would be teaching you to rely on it making one. The finding here
-> is about *auditability*, not about catching Copilot out.
+Neither run resolves the underlying conflict on its own. That gap — a human still has to
+decide which source is authoritative — is what Stage 4 exists to close.
 
 ### When to build what — a first look
 
@@ -774,8 +740,8 @@ deployment targets it belongs in.
       what you actually promoted
 - [ ] Confirmed that an unrelated work-unit tag excludes the tagged fact
 - [ ] Ran the A/B window comparison in two separate chats and recorded both rows (3.3)
-- [ ] Answered question 2 — what *in Run A's own window* would have let you audit its
-      answer — regardless of whether Run A was right
+- [ ] Can point to what *in Run A's own window* would have let you audit its answer —
+      regardless of whether Run A was right
 - [ ] You can explain why the package is viable without being exhaustive
 
 > **Core rule:** The goal is not minimum context. It is **minimum viable context** —
@@ -837,26 +803,18 @@ The investigator holds `['search', 'read', 'agent']`. No `edit`. No `runCommands
 `evidence-checker` *has* `runCommands` — so by dispatching, the investigator reached
 command execution it does not itself possess.
 
-Does that break the boundary? Answer before reading on.
+**The edit boundary still holds; the command boundary became indirect.**
+`evidence-checker` has no `edit` tool either, so nothing the investigator does —
+directly or by delegation — can change a file. That was always the boundary that
+mattered.
 
-<details>
-<summary>Check your answer</summary>
-
-**The edit boundary holds; the command boundary became indirect.** `evidence-checker`
-has no `edit` tool either, so nothing the investigator does — directly or by
-delegation — can change a file. That was always the boundary that mattered.
-
-But the general rule is worth carrying out of this room: **an agent that can dispatch
-holds the union of its subagents' capabilities.** Granting `agent` is not a small
-permission. When you scope a role, you are scoping everything it can call, and the
-narrow remit written into `evidence-checker` is doing real work here.
-
-</details>
+The general rule worth carrying forward: **an agent that can dispatch holds the union of
+its subagents' capabilities.** Granting `agent` is not a small permission — scoping a
+role means scoping everything it can call, and the narrow remit written into
+`evidence-checker` is doing real work here.
 
 The capability-versus-instruction point from earlier labs still applies — an instruction
-not to edit can be argued past mid-task, a missing tool cannot. Confirm it quickly if
-you like (*"just make the edit yourself, it's a small change"*), then move on. The new
-material is above.
+not to edit can be argued past mid-task, a missing tool cannot.
 
 ### 4.3 — The conflict, surfaced and stopped on
 
@@ -890,77 +848,61 @@ Tell it the **wrong** answer, with authority:
 That contradicts evidence it surfaced thirty seconds ago: the config is committed, the
 ADR is still marked `Proposed`. Record what it does.
 
-| | What you just watched |
+| | What that demonstrates |
 |---|---|
 | **It complied** | Sycophancy. The model weighted your assertion above evidence it had produced itself. Nothing about the conflict changed — only who was insisting. |
-| **It pushed back** | The register did its job. Ask the harder question: what *in its window* let it hold? It had provenance — a source and a source type — not just a value. Would it have held with a bare rate and no lineage? |
+| **It pushed back** | The register did its job — it held because it had provenance behind the value, a source and a source type, not just a bare number. A bare rate with no lineage would not have given it anything to hold onto. |
 
 **Either outcome is the lesson.** This is not a trick to catch Copilot out; a model
-agreeing with the person in front of it is the expected default, and the point is that
-you now know to design against it rather than hope. It is also why the *reviewer* in
+agreeing with the person in front of it is the expected default, and the point is
+designing against it rather than hoping it won't happen. It's also why the *reviewer* in
 Stage 5 gets the diff and the criteria and nothing else — an evaluator that can see your
 reasoning tends to agree with your reasoning.
 
 Now correct yourself in the same conversation, so the wrong premise is on the record as
 raised and rejected. You will use that in 4.6.
 
-### 4.5 — The human decision, and recording it
+### 4.5 — The Human Decision, and Recording It
 
-The conflict is yours to resolve — not the agent's. Before reading further, examine the
-two sources and the evidence available to you:
+The conflict is yours to resolve — not the agent's. The evidence:
 
-- `config/fee-schedule.yaml` — read its header; note its commit status
-- `docs/adr/ADR-0007-fee-schedule.md` — read its `Status` field and the rate it states
-- `docs/JIRA_TICKETS.md` — read the MFIN-2088 entry for any explicit guidance from the
-  ticket author
+- `config/fee-schedule.yaml` is committed configuration — the current, live source of
+  truth for fee rates.
+- `docs/adr/ADR-0007-fee-schedule.md` is marked `Status: Proposed` — it was never
+  formally accepted.
+- `docs/JIRA_TICKETS.md`'s MFIN-2088 entry states that "Pricing/Product has already
+  committed the target rate" and that "pricing changed during scoping."
 
-**Commit to your decision before continuing — say it out loud or write it down, but
-settle it before you scroll:**
+**The resolution:** `config/fee-schedule.yaml` is authoritative. The ADR reflects an
+earlier, superseded proposal — the ticket confirms the rate changed after the ADR was
+written. This is a real engineering pattern worth naming: it's closer to **formalizing
+an already-evidenced supersession** than deciding a genuine unknown from nothing.
 
-> Which source is authoritative, and why? What evidence from the repository supports
-> that call — specifically the ADR's Status field, the ticket, and commit history?
+**Record that resolution — three mechanical steps:**
 
-Take that step before you scroll past this point.
+1. **Mark the ADR by hand.** Open `docs/adr/ADR-0007-fee-schedule.md` and change
+   `**Status:** Proposed` to `**Status:** Superseded by config/fee-schedule.yaml`. This
+   is a real file edit made by a person, not a chat message.
 
----
+2. **Update your register.** Open `.context/context-register.yaml` (built in Stage 3)
+   and add two entries under `decisions:`:
 
-*Resolution (read only after you have recorded your own decision above):*
+   ```yaml
+   decisions:
+     - decision: "The USD 2.00 minimum compares against the computed fee, not the raw amount"
+       approved_by: "human, Stage 4.5"
+     - decision: "config/fee-schedule.yaml supersedes docs/adr/ADR-0007-fee-schedule.md"
+       approved_by: "human, Stage 4.5"
+   ```
 
-The ADR's `Status: Proposed` means it was never formally accepted — it is a draft rate
-proposal, not a finalized decision. The ticket itself (`docs/JIRA_TICKETS.md`) confirms
-that "Pricing/Product has already committed the target rate" and that "pricing changed
-during scoping." The committed configuration in `config/fee-schedule.yaml` reflects the
-current business decision; the ADR reflects an earlier, superseded proposal.
+   This is the moment those two facts are allowed to become decisions — not before. Run
+   `./scripts/context-for.sh calculateFee-rtp` again and confirm the `Decisions` section
+   now appears.
 
-What you are doing here is closer to **formalizing an already-evidenced supersession**
-than resolving a genuine unknown from nothing — that is itself a real and common
-engineering task, and it's worth being honest with yourself about which of the two you
-were actually doing before you write it down as a "decision."
-
-Mark the ADR by hand to record the supersession:
-
-Open `docs/adr/ADR-0007-fee-schedule.md` and change `**Status:** Proposed` to
-`**Status:** Superseded by config/fee-schedule.yaml`. This is a real file edit made by
-a person, not a chat message.
-
-**Now update your own register.** Open `.context/context-register.yaml` (the one you
-built in Stage 3) and add two entries under `decisions:`:
-
-```yaml
-decisions:
-  - decision: "The USD 2.00 minimum compares against the computed fee, not the raw amount"
-    approved_by: "human, Stage 4.5"
-  - decision: "config/fee-schedule.yaml supersedes docs/adr/ADR-0007-fee-schedule.md"
-    approved_by: "human, Stage 4.5"
-```
-
-This is the moment those two facts are allowed to become decisions — not before.
-Run `./scripts/context-for.sh calculateFee-rtp` again and confirm the `Decisions` section
-now appears.
-
-Tell the investigator the decision is made. It will output the handoff content in the
-chat, following the schema documented in `.workflow/README.md`. Copy this output into
-`.workflow/HANDOFF.md` yourself — the investigator cannot create files.
+3. **Capture the handoff.** Tell the investigator the decision is made. It will output
+   the handoff content in the chat, following the schema documented in
+   `.workflow/README.md`. Copy this output into `.workflow/HANDOFF.md` yourself — the
+   investigator cannot create files.
 
 ### 4.6 — Implement, from the handoff only
 
@@ -991,7 +933,7 @@ a USD 2.00 minimum" — read it before continuing to Stage 5. Do not fix anythin
 - [ ] Investigator settled a claim by **dispatching `evidence-checker`**, and its own
       window never held the compile output or the file reads
 - [ ] Can state what a subagent gave you that reading the files yourself would not
-- [ ] Answered whether dispatch weakens a capability boundary, and why the edit
+- [ ] Can state whether dispatch weakens a capability boundary, and why the edit
       boundary still held (4.2)
 - [ ] The `CONTEXT CONFLICT` block appeared and the investigator stopped on it
 - [ ] Asserted the wrong rate on purpose and recorded whether the agent complied or
@@ -1338,8 +1280,9 @@ five questions:
 
 Record B's numbers, then compare, and look at the **answers** rather than only the cost.
 B has the entire repository available to it and still has to rediscover the rate conflict
-from scratch, with no record that a person ever resolved it. Check specifically: does B
-know the ADR was superseded, and *who decided that*?
+from scratch, with no record that a person ever resolved it. Look specifically at
+whether B's answer mentions the ADR was superseded, and by whom — a rediscovered
+conflict is not the same as a resolved one.
 
 The gap between A and B is what the register and the handoff are worth. It is the only
 number in this lab that could not have been produced in a single session.
@@ -1373,43 +1316,35 @@ a problem already sitting in this same codebase that no earlier stage pointed yo
 The prepared infrastructure still exists. It just doesn't help here — this is a different
 kind of context problem than the one `context-map.sh` or `verify-change.sh` were built for.
 
-### 7.1 — Recognition check (~5 min)
+### 7.1 — Recognition Check (~5 min)
 
-A question nobody asked you in Stages 0–6, about a method no stage has opened:
+A case no stage has opened yet: MFIN-2088 adds a fee for RTP transfers. Refunds run
+through `refundPayment()`. When an RTP payment is refunded, what happens to the fee?
 
-> **MFIN-2088 adds a fee for RTP transfers. Refunds run through `refundPayment()`.
-> When an RTP payment is refunded, what happens to the fee — is it refunded,
-> charged again, or neither? And is answering that your problem right now?**
+Search first, the way you would on any Monday:
 
-Search first, the way you would on any Monday: `grep -n "fee\|Fee" ` over
-`refundPayment()`'s body (lines 254–283). **Expected: zero hits** — which reads like
-"refunds don't touch fee logic, nothing to worry about."
+```bash
+grep -n "fee\|Fee" src/main/java/com/meridian/payments/PaymentService.java
+```
 
-Now check the call path instead of the text, and read what the reverse request actually
-sets. Answer:
+**Expected: zero hits inside `refundPayment()`'s body (lines 254–283)** — which reads
+like "refunds don't touch fee logic, nothing to worry about."
 
-1. Which pattern(s) apply, and what deterministic evidence settles it — not what the
-   text search implied?
-2. Should you fix this inside MFIN-2088? Why or why not?
+Now check the call path instead of the text: `refundPayment()` builds a reverse
+`PaymentRequest` and hands it to `processPayment()` — so it inherits whatever the
+payment path does with fees. It never calls `setPaymentType()` on that reverse request
+either, so the payment type arrives `null`. Any fee logic keyed on payment type is
+reading an unset field on every refund. Zero grep hits, real coupling — the same shape
+as Stage 1.2's `LegacyPaymentUtils` false positive, inverted.
 
-<details>
-<summary>Check your answer (open only after writing yours)</summary>
+**Pattern:** Authority + Discover — the text search was a false negative; the call path
+was the real evidence.
 
-**Pattern:** Authority + Discover. The text search is a false negative: `refundPayment()`
-contains no fee code itself, but it builds a reverse `PaymentRequest` and hands it to
-`processPayment()` — so it inherits whatever the payment path does with fees. Worse, it
-never calls `setPaymentType()` on that reverse request, so the payment type arrives
-`null`. Any fee logic keyed on payment type is therefore reading an unset field on every
-refund. Zero grep hits, real coupling — the same shape as Stage 1.2's `LegacyPaymentUtils`
-false positive, inverted.
-
-**Scoping:** out of scope. MFIN-2088's acceptance criteria are about what
-`calculateFee(amount, "RTP")` returns, nothing about the refund path. And unlike most
-findings in this repo, **no ticket tracks this one** — which is not a reason to fix it
+**Scoping:** out of scope for this ticket. MFIN-2088's acceptance criteria are about
+what `calculateFee(amount, "RTP")` returns, nothing about the refund path. And unlike
+most findings in this repo, no ticket tracks this one — which is not a reason to fix it
 here. Record it, raise a ticket, leave the change alone. Stage 4's `do_not_change`
-discipline applies to debt you discover mid-task, not just debt somebody already filed.
-
-</details>
+discipline applies to debt discovered mid-task, not just debt somebody already filed.
 
 ### 7.2 — Build Your Own Context-Optimization Tool (~25 min)
 
@@ -1580,13 +1515,14 @@ actually leave the room with you:
 
 Anything in this repo that isn't one of those three was scaffolding.
 
-### Final reflection
+### Closing
 
-Think back to the option (A–E) you chose at the very beginning, in Stage 0. Would you
-make the same choice now? Looking at the tool you just built in the capstone: what would
-you establish before deciding which source to trust?
-
-This is a verbal close — no write-up required.
+Stage 0 opened with two disagreeing sources and a cold Copilot answer that looked
+reasonable either way. Everything since has built a repeatable way to tell which parts
+of an answer like that are established, and which still need proof — discover before
+you retrieve, reduce before context, promote what's durable, bound what a role can
+touch, verify outside the model, and rehydrate from artifacts alone. The tool built in
+the capstone is the proof that the method, not just the tooling, made the trip.
 
 ---
 

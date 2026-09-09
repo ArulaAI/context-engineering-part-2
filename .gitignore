@@ -7,6 +7,10 @@ journey/
 .workflow/state.json
 .workflow/HANDOFF.md
 .context/context-register.yaml
+.context/context-map-*.md
+.context/test-gap-*.md
+.context/outline-*.md
+.context/context-run-*.md
 
 # user-specific Claude Code config and orchestration artifacts
 .claude/
