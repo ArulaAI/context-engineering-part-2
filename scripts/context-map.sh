@@ -1,123 +1,195 @@
 #!/usr/bin/env bash
 #
-# context-map.sh — a routing table for where truth lives, not an answer.
+# context-map.sh — where to look, and what is still open. Never what is true.
 #
-# Stage 1 ("Discover Before You Retrieve") replaces "search the repo" with "find out
-# which of several categories of source actually bears on this question, before you
-# open any of them." This script does the finding; it never prints file contents,
-# only paths, hit counts, and a tier hint — the map is cheap on purpose so you're not
-# tempted to treat it as the answer.
+#   CONTEXT MAP          tells you WHERE TO LOOK            (this script)
+#   EVIDENCE MECHANISMS  tell you WHAT CAN BE PROVEN        (authority.sh, test-evidence.sh, ...)
+#   CONTEXT REGISTER     tells future actors WHAT HAS BEEN VERIFIED / DECIDED   (ctx.sh)
 #
-# Output is a GFM markdown table, printed to stdout (so it renders as a table in
-# Copilot Chat, not a monospace blob) and saved to .context/context-map-<keyword>.md
-# so it's still there after the chat scrolls.
+# This script is a router. It names candidate context surfaces and turns what it cannot
+# settle into explicit UNRESOLVED questions. It deliberately never says "authoritative",
+# "correct", "dead", "superseded" or "no dependency" — those are claims, and claims are
+# settled by evidence mechanisms or by people with authority, not by a map.
 #
-# usage: scripts/context-map.sh [keyword]
+# Nothing here is specific to RTP. Candidates come from the task text and the repository's
+# own layout: a ticket section that mentions the keyword; symbols that ticket names which
+# exist in src/main; config, decision records, tests and docs that mention the keyword;
+# and imports in the candidate files that look legacy.
+#
+# usage: scripts/context-map.sh <keyword> [TICKET-ID]
+# output: markdown on stdout, also saved to .context/context-map-<keyword>.md
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 3
 
-KEYWORD="${1:-RTP}"
+KEYWORD="${1:-}"
+TICKET_ID="${2:-}"
+if [ -z "$KEYWORD" ]; then
+  echo "usage: context-map.sh <keyword> [TICKET-ID]" >&2
+  exit 3
+fi
+
 OUT_DIR=".context"
-KEYWORD_SAFE="$(printf '%s' "$KEYWORD" | tr -c 'A-Za-z0-9_-' '_')"
-OUT_FILE="${OUT_DIR}/context-map-${KEYWORD_SAFE}.md"
-
-# Escape a literal pipe so a grepped line can never break a markdown table row.
-esc() { printf '%s' "$1" | sed 's/|/\\|/g'; }
-
-hitcount() {
-  # $1 = path/glob description (for the summary line), remaining args = grep target(s)
-  local dir="$1"; shift
-  if [ -d "$dir" ]; then
-    grep -rl "$KEYWORD" "$dir" 2>/dev/null | wc -l | tr -d ' '
-  else
-    echo 0
-  fi
-}
-
-SRC_HITS="$(hitcount src/main/java)"
-CONFIG_HITS="$(hitcount config)"
-ADR_HITS="$(hitcount docs/adr)"
-TICKET_HITS="$( [ -f docs/JIRA_TICKETS.md ] && grep -c "$KEYWORD" docs/JIRA_TICKETS.md 2>/dev/null || echo 0 )"
-TICKET_HITS="${TICKET_HITS##*$'\n'}"  # strip any multiline; keep last number
-TEST_HITS="$(hitcount src/test/java)"
-
-TOTAL_EVIDENCE=$((SRC_HITS + CONFIG_HITS + ADR_HITS + TICKET_HITS + TEST_HITS))
-
+SAFE="$(printf '%s' "$KEYWORD" | tr -c 'A-Za-z0-9_-' '_')"
+OUT_FILE="$OUT_DIR/context-map-${SAFE}.md"
 mkdir -p "$OUT_DIR"
 
+TICKETS="docs/JIRA_TICKETS.md"
+MAIN="src/main/java"
+TEST="src/test/java"
+
+# Lab machinery is not repository context. Excluding it keeps the map honest.
+is_machinery() {
+  case "$1" in
+    .github/*|.context/*|.workflow/*|scripts/*|fixtures/*|docs/facilitator/*|target/*) return 0 ;;
+    docs/INTELLIJ_PATH.md|docs/TROUBLESHOOTING.md|docs/LAB_WALKTHROUGH.html) return 0 ;;
+    LAB_ACTION_GUIDE.md|README.md|AGENTS.md) return 0 ;;
+  esac
+  return 1
+}
+
+# ---- TASK: ticket sections that mention the keyword --------------------------------
+TASK_ROWS=""
+TASK_TEXT=""
+if [ -f "$TICKETS" ]; then
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    if [ -n "$TICKET_ID" ] && [ "$id" != "$TICKET_ID" ]; then continue; fi
+    section="$(awk -v id="$id" '
+      /^## / { on = (index($0, "## " id) == 1) }
+      on { print }' "$TICKETS")"
+    if printf '%s' "$section" | grep -qiw -- "$KEYWORD"; then
+      title="$(printf '%s\n' "$section" | head -1 | sed 's/^## *//')"
+      TASK_ROWS="${TASK_ROWS}| Task / work item | \`${TICKETS}\` — ${title} |"$'\n'
+      TASK_TEXT="${TASK_TEXT}${section}"$'\n'
+    fi
+  done < <(grep -oE '^## [A-Z][A-Z0-9]+-[0-9]+' "$TICKETS" | sed 's/^## //')
+fi
+
+# ---- IMPLEMENTATION CANDIDATES --------------------------------------------------------
+# (a) symbols the task names, e.g. `PaymentService.calculateFee()`, that exist in src/main
+# (b) main-source files that already mention the keyword
+IMPL_ROWS=""
+CANDIDATE_CLASSES=""
+while IFS= read -r sym; do
+  [ -n "$sym" ] || continue
+  cls="${sym%%.*}"
+  meth=""
+  case "$sym" in *.*) meth="${sym#*.}"; meth="${meth%()}" ;; esac
+  file="$(find "$MAIN" -name "${cls}.java" 2>/dev/null | head -1)"
+  [ -n "$file" ] || continue
+  if [ -n "$meth" ]; then
+    grep -qE "[[:space:]]${meth}[[:space:]]*\(" "$file" || continue
+    IMPL_ROWS="${IMPL_ROWS}| Implementation candidate | \`${cls}.${meth}\` in \`${file}\` — named by the task |"$'\n'
+    CANDIDATE_CLASSES="${CANDIDATE_CLASSES} ${cls}"
+  fi
+done < <(printf '%s' "$TASK_TEXT" | grep -oE '`[A-Z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*\(\))?`' | tr -d '`' | sort -u)
+
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  cls="$(basename "$f" .java)"
+  case " $CANDIDATE_CLASSES " in *" $cls "*) continue ;; esac
+  IMPL_ROWS="${IMPL_ROWS}| Implementation candidate | \`${f}\` — mentions \"${KEYWORD}\" |"$'\n'
+  CANDIDATE_CLASSES="${CANDIDATE_CLASSES} ${cls}"
+done < <(grep -rliw -- "$KEYWORD" "$MAIN" 2>/dev/null | sort)
+
+# ---- CONFIGURATION: files and the keys that mention the keyword (keys, not values) -----
+CONFIG_ROWS=""
+CONFIG_FILES=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  keys="$(grep -iw -- "$KEYWORD" "$f" | grep -oE '^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*:' \
+          | sed 's/[[:space:]:]//g' | sort -u | paste -sd, - | sed 's/,/, /g')"
+  CONFIG_ROWS="${CONFIG_ROWS}| Configuration candidate | \`${f}\`${keys:+ — keys: \`${keys}\`} |"$'\n'
+  CONFIG_FILES="${CONFIG_FILES} ${f}"
+done < <(grep -rliw -- "$KEYWORD" config 2>/dev/null | sort)
+
+# ---- DECISION RECORDS: ADRs that mention the keyword, with their own Status field -----
+ADR_ROWS=""
+ADR_FILES=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  status="$(grep -m1 -E '^\*\*Status:\*\*' "$f" | sed 's/^\*\*Status:\*\* *//')"
+  ADR_ROWS="${ADR_ROWS}| Decision record | \`${f}\` — its Status field reads \"${status:-none}\" |"$'\n'
+  ADR_FILES="${ADR_FILES} ${f}"
+done < <(grep -rliw -- "$KEYWORD" docs/adr 2>/dev/null | sort)
+
+# ---- TEST SURFACES: tests for the candidate classes, and any test mentioning the keyword
+TEST_ROWS=""
+UNPROVEN_TESTS=""
+for cls in $CANDIDATE_CLASSES; do
+  tf="$(find "$TEST" -name "${cls}Test.java" 2>/dev/null | head -1)"
+  [ -n "$tf" ] || continue
+  n="$(grep -ciw -- "$KEYWORD" "$tf" || true)"
+  TEST_ROWS="${TEST_ROWS}| Test surface | \`${tf}\` — lines mentioning \"${KEYWORD}\": ${n} |"$'\n'
+  [ "$n" -eq 0 ] && UNPROVEN_TESTS="${UNPROVEN_TESTS} ${tf}"
+done
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$TEST_ROWS" in *"\`${f}\`"*) continue ;; esac
+  TEST_ROWS="${TEST_ROWS}| Test surface | \`${f}\` — mentions \"${KEYWORD}\" |"$'\n'
+done < <(grep -rliw -- "$KEYWORD" "$TEST" 2>/dev/null | sort)
+
+# ---- DEPENDENCY / LEGACY SIGNALS: legacy-looking imports in candidate files -------------
+LEGACY_ROWS=""
+LEGACY_PAIRS=""
+for cls in $CANDIDATE_CLASSES; do
+  f="$(find "$MAIN" -name "${cls}.java" 2>/dev/null | head -1)"
+  [ -n "$f" ] || continue
+  while IFS= read -r imp; do
+    [ -n "$imp" ] || continue
+    short="${imp##*.}"
+    LEGACY_ROWS="${LEGACY_ROWS}| Legacy / dependency signal | \`${short}\` — imported by \`${cls}\` (text signal only) |"$'\n'
+    LEGACY_PAIRS="${LEGACY_PAIRS} ${cls}:${short}"
+  done < <(grep -oE '^import [a-zA-Z0-9_.]+;' "$f" | sed 's/^import //; s/;$//' \
+           | grep -iE '\.(legacy|deprecated|compat|old)\.|Legacy|Deprecated' | sort -u)
+done
+
+# ---- OTHER RELEVANT CONTEXT: remaining docs that mention the keyword ------------------
+OTHER_ROWS=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  f="${f#./}"
+  is_machinery "$f" && continue
+  case "$f" in "$TICKETS"|docs/adr/*) continue ;; esac
+  OTHER_ROWS="${OTHER_ROWS}| Other context | \`${f}\` |"$'\n'
+done < <(git ls-files -- '*.md' 2>/dev/null | while IFS= read -r t; do
+           grep -qiw -- "$KEYWORD" "$t" 2>/dev/null && echo "$t"; done | sort)
+
+# ---- UNRESOLVED: what this map cannot settle ------------------------------------------
+UNRESOLVED=""
+n_sources=0
+for _ in $CONFIG_FILES $ADR_FILES; do n_sources=$((n_sources + 1)); done
+if [ "$n_sources" -ge 2 ]; then
+  UNRESOLVED="${UNRESOLVED}- Which source currently governs ${KEYWORD}? Candidates:$(for s in $CONFIG_FILES $ADR_FILES; do printf ' `%s`' "$s"; done). A map cannot settle this.\n"
+fi
+for pair in $LEGACY_PAIRS; do
+  UNRESOLVED="${UNRESOLVED}- Is \`${pair#*:}\` a real compiled dependency of \`${pair%%:*}\`? So far this is only a text signal.\n"
+done
+for tf in $UNPROVEN_TESTS; do
+  UNRESOLVED="${UNRESOLVED}- Is ${KEYWORD} behavior proven by any test? No line in \`${tf}\` mentions \"${KEYWORD}\".\n"
+done
+[ -z "$IMPL_ROWS" ] && UNRESOLVED="${UNRESOLVED}- Where would ${KEYWORD} be implemented? No candidate found.\n"
+
+# ---- render ----------------------------------------------------------------------------
+ALL_ROWS="${TASK_ROWS}${IMPL_ROWS}${CONFIG_ROWS}${ADR_ROWS}${TEST_ROWS}${LEGACY_ROWS}${OTHER_ROWS}"
 {
   echo "# Context Map — \"${KEYWORD}\""
   echo ""
-
-  if [ "$TOTAL_EVIDENCE" -eq 0 ]; then
-    echo "| Location | Hits |"
-    echo "|---|---|"
-    echo "| \`src/main\` | 0 file(s) |"
-    echo "| \`config/\` | 0 file(s) |"
-    echo "| \`docs/adr\` | 0 file(s) |"
-    echo "| \`docs/JIRA_TICKETS.md\` | 0 mention(s) |"
-    echo ""
-    echo "No routing evidence found for \"${KEYWORD}\"."
-    echo ""
-    echo "_This mapper is a Meridian worked-example utility; inspect the repo topology_"
-    echo "_before adapting it to another domain._"
+  if [ -z "$ALL_ROWS" ]; then
+    echo "No candidate context surfaces found for \"${KEYWORD}\". Check the keyword."
   else
-    echo "| Category | Finding |"
+    echo "| Surface | Where to look |"
     echo "|---|---|"
-    echo "| Affected domains | \`src/main/java/com/meridian/payments\` (fee logic — PaymentService) |"
-
-    if [ "$SRC_HITS" -eq 0 ]; then
-      echo "| Relevant symbols | \`calculateFee(BigDecimal, String)\` — handles WIRE/ACH/SWIFT, no ${KEYWORD} branch yet |"
-    else
-      echo "| Relevant symbols | \`calculateFee(BigDecimal, String)\` — ${SRC_HITS} file(s) already mention ${KEYWORD} |"
-    fi
-
-    echo "| Contracts | none — no ${KEYWORD}-specific interface exists |"
-
-    if [ "$CONFIG_HITS" -gt 0 ]; then
-      LINE="$(grep -Hn "$KEYWORD" config/*.yaml 2>/dev/null | head -1)"
-      echo "| Configuration | \`$(esc "$LINE")\` — **authoritative committed config** |"
-    else
-      echo "| Configuration | none found under \`config/\` |"
-    fi
-
-    if [ "$ADR_HITS" -gt 0 ]; then
-      ADR_FILE="$(grep -rl "$KEYWORD" docs/adr 2>/dev/null | head -1)"
-      STATUS="$(grep -m1 '^\*\*Status:\*\*' "$ADR_FILE" 2>/dev/null | sed 's/\*\*Status:\*\* *//')"
-      echo "| Architecture decisions | \`${ADR_FILE}\` — **STATUS: $(esc "${STATUS:-unknown}")** — verify before trusting |"
-    else
-      echo "| Architecture decisions | none found under \`docs/adr\` |"
-    fi
-
-    if [ "$TEST_HITS" -gt 0 ]; then
-      echo "| Tests | ${TEST_HITS} file(s) already reference ${KEYWORD} |"
-    else
-      echo "| Tests | none — \`src/test\` has no ${KEYWORD} test yet |"
-    fi
-
-    echo "| Runtime/dependency bounds | none — ${KEYWORD} introduces no new library dependency |"
-
-    if [ "$TICKET_HITS" -gt 0 ]; then
-      echo "| Ticket / objective | \`docs/JIRA_TICKETS.md\` — ${TICKET_HITS} mention(s) |"
-    else
-      echo "| Ticket / objective | no ticket mentions ${KEYWORD} — check you have the right keyword |"
-    fi
-
+    printf '%s' "$ALL_ROWS"
     echo ""
-    echo "**Hit counts:** \`src/main\`: ${SRC_HITS} &middot; \`config/\`: ${CONFIG_HITS} &middot; \`docs/adr\`: ${ADR_HITS} &middot; \`docs/JIRA_TICKETS.md\`: ${TICKET_HITS} mention(s)"
+    echo "## Unresolved"
     echo ""
-
-    if [ "$CONFIG_HITS" -gt 0 ] && [ "$ADR_HITS" -gt 0 ]; then
-      echo "> **Configuration and an architecture decision both mention ${KEYWORD}** — resolve"
-      echo "> which is authoritative before writing code (diff their rates by hand; there is"
-      echo "> no compiler check for this, since ${KEYWORD} doesn't exist in code yet)."
-      echo ""
-    fi
-
-    echo "_This is a routing table, not an answer. It tells you where to look next, not what_"
-    echo "_you'll find there._"
+    if [ -n "$UNRESOLVED" ]; then printf '%b' "$UNRESOLVED"; else echo "- none identified by the map"; fi
   fi
+  echo ""
+  echo "_A routing table, not an answer. Settle each unresolved question with an evidence_"
+  echo "_mechanism, or with someone who has the authority to decide it._"
 } | tee "$OUT_FILE"
 
 echo ""

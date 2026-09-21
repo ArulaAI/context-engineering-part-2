@@ -21,9 +21,15 @@ NAME="$(basename "${SRC%.java}")"
 REL="${SRC#src/main/java/}"
 CLASS="target/classes/${REL%.java}.class"
 
-if [ ! -f "$CLASS" ]; then
-  mvn -B -q test-compile >/dev/null 2>&1 || { echo "cannot compile; jdeps needs bytecode"; exit 3; }
+# Bytecode must be current. A class file older than any source file would answer a
+# question about code that no longer exists — so recompile whenever that is possible.
+if [ ! -f "$CLASS" ] || [ -n "$(find src/main/java -name '*.java' -newer "$CLASS" 2>/dev/null | head -1)" ]; then
+  mvn -B -q test-compile >/dev/null 2>&1 || {
+    echo "authority.sh: cannot compile — bytecode evidence is unavailable, refusing to guess." >&2
+    exit 3
+  }
 fi
+[ -f "$CLASS" ] || { echo "authority.sh: no class file for ${SRC} after compiling." >&2; exit 3; }
 
 # Fail closed: a missing jdeps must not silently look like "0 bytecode references."
 # jdeps ships with every JDK 17+, but some PATH setups only expose java/jshell — e.g.
@@ -58,7 +64,17 @@ echo
 
 # ── tier 1 · bytecode ───────────────────────────────────────────────────────
 echo "jdeps — bytecode (tier 1)"
-DEPS="$(jdeps -v -cp target/classes "$CLASS" 2>/dev/null | grep "$SYMBOL" || true)"
+# Fail closed: if jdeps itself errors, "no matching line" would read exactly like "no
+# dependency". Capture its exit status and refuse to answer rather than answer wrong.
+JDEPS_OUT="$(jdeps -v -cp target/classes "$CLASS" 2>&1)"; JDEPS_RC=$?
+if [ "$JDEPS_RC" -ne 0 ]; then
+  echo "authority.sh: jdeps failed (exit ${JDEPS_RC}) — bytecode evidence unavailable." >&2
+  printf '%s
+' "$JDEPS_OUT" | head -5 >&2
+  exit 3
+fi
+DEPS="$(printf '%s
+' "$JDEPS_OUT" | grep -- "$SYMBOL" || true)"
 if [ -n "$DEPS" ]; then
   D="$(printf '%s\n' "$DEPS" | grep -c .)"
   printf '%s\n' "$DEPS" | sed 's/^/    /'
@@ -80,11 +96,17 @@ VERDICT: no compiled dependency detected.
   role — they may be imports, comments, string literals, or same-package
   usage that jdeps does not distinguish from absence.
 EOF
+  echo ""
+  echo "EVIDENCE: claim=\"${NAME} depends on ${SYMBOL}\" status=rejected mechanism=jdeps bytecode_refs=0 text_refs=${N}"
   exit 0
 elif [ "$D" -gt 0 ]; then
   echo "VERDICT: real dependency — ${D} bytecode reference(s). grep and jdeps agree."
+  echo ""
+  echo "EVIDENCE: claim=\"${NAME} depends on ${SYMBOL}\" status=verified mechanism=jdeps bytecode_refs=${D} text_refs=${N}"
   exit 0
 else
   echo "VERDICT: no evidence in either tier."
+  echo ""
+  echo "EVIDENCE: claim=\"${NAME} depends on ${SYMBOL}\" status=rejected mechanism=jdeps bytecode_refs=0 text_refs=0"
   exit 0
 fi

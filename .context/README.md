@@ -1,31 +1,45 @@
-# `.context/` — promoted facts, on disk, not in the conversation
+# `.context/` — evidence and durable engineering state
 
-Stage 3 ("Promote & Package") treats a long conversation's discoveries as unequal. Some
-are verified facts worth keeping. Most are temporary observations worth discarding. This
-directory is where the "worth keeping" half lives, so the next task package can be built
-from it instead of from a re-read of the whole conversation.
+This directory holds engineering state that must outlive any conversation. Nothing in it is
+written by hand and nothing in it comes from a chat: `scripts/ctx.sh` writes every entry, and
+it refuses entries that do not carry their evidence or their authority.
 
-| File | Written by | Read by |
-|---|---|---|
-| `context-register.yaml` | you, in Stage 3 (from the template, filled with your own findings) | `scripts/context-for.sh` |
-| `context-register.template.yaml` | shipped with the lab | you, as your Stage 3 starting point — copy this to `context-register.yaml` and fill it in |
+| File | Layer | Written by | Holds |
+|---|---|---|---|
+| `evidence-ledger.yaml` | Evidence | `ctx.sh evidence add` / `evidence capture` | what a mechanism observed about one claim, and whether that settled it |
+| `context-register.yaml` | Durable verified context | `ctx.sh init / promote / unknown / constraint / decide` | what is verified, decided, constrained, superseded, and still unknown |
+| `bundles/*.md` | Derived | `scripts/context-bundle.sh` | exact context windows for controlled comparisons |
+| `context-map-*.md` etc. | Ephemeral | the routing and digest tools | a saved copy of tool output, so it survives the chat scrolling |
 
-`context-register.yaml` is a **deliberately flat YAML subset** — two levels of nesting
-max, one scalar per line, a `>` folded block only on `objective`. That's not a limitation
-that slipped in by accident: it's what lets `scripts/context-for.sh` parse the register
-with a plain `awk` state machine and no YAML library, no Python, and no dependency
-beyond what's already installed alongside a JDK and Maven — matching every other script
-in this lab's "no dependencies beyond what's already installed" rule.
+All of it is created during your run and is gitignored. None of it ships.
 
-Required top-level keys: `objective`, `verified_facts`, `authoritative_sources`,
-`decisions`, `constraints`, `superseded_sources`, `unknowns`. The template documents
-the required shape with guidance comments for each section.
+## The rules `ctx.sh` enforces
 
-Each entry under `verified_facts` may carry an optional `applies_to: <work-unit-tag>`
-field. An entry without one is treated as global and included in every package
-`scripts/context-for.sh` builds; a tagged entry is included only when its tag matches
-the requested work unit.
+- A **verified fact** can only be promoted from a recorded piece of evidence, and carries that
+  evidence's mechanism and source.
+- An **unresolved** claim cannot be promoted as a fact. It becomes an **unknown**.
+- A **decision** must cite an authority file that exists. Recording it **retires** the unknown
+  it resolves, and records any source it supersedes and exactly how much of it.
+- No question is ever both decided and still open. `ctx.sh check` fails if one is.
 
-**`context-register.yaml` is created live by you during Stage 3.**
-It is not shipped — the empty state is the honest starting point, matching "nothing has
-been promoted yet."
+## Register shape
+
+```yaml
+objective: "..."
+work_item: "..."
+
+verified_facts:
+  - id: VF-001
+    claim: "..."
+    evidence_id: "EV-001"
+    mechanism: "jdeps"
+    source: "..."
+    applies_to: "calculateFee-rtp"     # omit for a fact that applies to every work unit
+
+authoritative_sources:      # added automatically when a decision cites an authority
+decisions:                  # D-nnn: decision, resolves, authority, decided_by
+constraints:                # C-nnn: constraint, basis
+superseded_sources:         # SS-nnn: source, superseded_by, scope, decision
+unknowns:                   # UNK-nnn: question, status, blocking
+retired_unknowns:           # the same questions once a decision resolved them
+```

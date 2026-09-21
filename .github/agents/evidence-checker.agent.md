@@ -47,9 +47,11 @@ If you are handed more than one claim, answer the first and say that you only ta
 2. **Use the strongest primitive that fits**, preferring this repository's own scripts,
    which already fail closed:
    - dependency claims → `./scripts/authority.sh <Symbol> [file]`
-   - coverage claims → `./scripts/test-gap.sh`
+   - test-behavior claims → `./scripts/test-evidence.sh <method> <token>`
    - "where does this live" → `./scripts/context-map.sh <keyword>`
-   - business values → read the committed configuration directly
+   - "which of two sources the organization approved" → no repository tool settles a
+     business-authority question. Report what each source states and return `unsettled`,
+     naming the kind of record that would settle it
 3. If **no tool can settle it**, say so plainly. Do not substitute a weaker tier and
    present it as equivalent.
 

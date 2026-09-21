@@ -1,43 +1,34 @@
 ---
 name: context-package
-description: Build a task-specific context package (objective, relevant files, applicable verified facts, authoritative config, constraints, required tests, open questions) from already-promoted facts in .context/context-register.yaml. Use when starting a new work unit that has verified facts recorded from earlier investigation. Returns the package, not a re-derivation of the facts.
+description: Build a task-specific package of durable engineering state — decisions with their authority, verified facts with their evidence, constraints, superseded sources, and open unknowns — filtered to one work unit from .context/context-register.yaml. Use when starting work that earlier investigation already informed. Returns the package, never a re-derivation.
 context: fork
 disable-model-invocation: true
 ---
 
 # Context Package
 
-Package what has already been promoted and verified — this skill does not re-derive
-facts, it filters and formats ones that already survived Stage 3's promote-or-discard
-decision.
+Package what has already been verified and decided. This skill does not re-derive facts: it
+filters durable state by work-unit tag and returns it.
 
 ## Input contract
 
 - A work-unit name, e.g. `calculateFee-rtp`
-- `.context/context-register.yaml` must already exist (create it in Stage 3 before
-  using this skill)
+- `.context/context-register.yaml` must exist (`./scripts/ctx.sh init` creates it)
 
 ## Workflow
 
 1. Run:
    ```
-   ./scripts/context-for.sh <work-unit>
+   ./scripts/ctx.sh package <work-unit>
    ```
-2. Read only the script output. **Do not open `.context/context-register.yaml`
-   yourself and re-summarize it** — the script's filtering (by `applies_to` tag) is
-   the point.
+2. Read only the script output. **Do not open the register and re-summarize it** — the
+   filtering by `applies_to` tag is the point.
 
 ## Output contract
 
-Return only the script's package. No prose introduction. No summary paragraph. No code.
+Return only the script's package. No prose introduction. No summary paragraph.
 
 ## Rules
 
-- **Never** invent a verified fact that isn't in the register. If the package says
-  "(none promoted yet)," that is the honest answer — say so, don't fill the gap from
-  memory or a fresh search.
-- If the register's `superseded_sources` section flags a source, never treat that
-  source as current, even if it's the only one you can find quickly.
-
-If you were invoked as a subagent, this package is the entire value you return — make
-it self-sufficient for whoever receives it next.
+- Never add a fact that is not in the package. "(none)" is an honest answer.
+- Never treat an open unknown as settled, and never treat a superseded source as current.

@@ -1,144 +1,151 @@
 #!/usr/bin/env bash
 # loop.sh — the repair loop's bookkeeper and gate.
 #
-# A shell script cannot drive Copilot, so this does not run the loop. The agent
-# runs the loop; this decides whether the agent is allowed to keep going.
+# A shell script cannot drive Copilot, so this does not run the loop. Whoever is repairing
+# (you, or an agent) runs the loop; this decides whether another attempt is worth making.
 #
-# That distinction is the whole point. "Try at most three times" written in an
-# instructions file is a REQUEST — the weakest rung of the enforcement ladder.
-# An attempt counter on disk, checked by a script, is a BOUND.
+# "Try at most three times" written in an instructions file is a REQUEST. An attempt counter
+# on disk, checked by a script, is a BOUND.
+#
+# Each check records two fingerprints and classifies what actually happened:
+#   code hash       everything under src/ that differs from the lab's starting commit
+#   failure hash    the verifier's output
+#
+#   same code  + any verdict          REDUNDANT RETRY    nothing changed, so nothing can change.
+#                                                        Not counted against the budget.
+#   new code   + same failure as the  UNSUCCESSFUL       the code moved, the outcome did not.
+#                previous attempt     REPAIR
+#   ...twice in a row                 THRASHING          stop: more edits are not converging.
+#   attempts reach the budget         BUDGET EXHAUSTED   stop and escalate.
 #
 #   scripts/loop.sh reset    start a new loop, clear state
-#   scripts/loop.sh check    run the verifier, record the attempt, decide
+#   scripts/loop.sh check    run the verifier, classify, decide
 #   scripts/loop.sh status   print state without running anything
 #
 # exit codes from `check`:
-#   0  DONE      green, stop because you succeeded
-#   1  CONTINUE  failed, attempts remain
-#   4  STOP      thrashing — the same verdict twice, the diff is moving but
-#                the outcome is not
-#   5  STOP      budget exhausted
+#   0  DONE              verifier passed
+#   1  CONTINUE          failed, attempts remain (a new failure, or a first unsuccessful repair)
+#   4  STOP_THRASHING    the same failure survived two consecutive code changes
+#   5  STOP_BUDGET       attempt budget exhausted
+#   6  REDUNDANT         no code change since the last attempt — make a change, or stop
 #
-# Why bound at three: across three independent studies, repair steps 1-3 deliver
-# nearly all the available gain; step 4 and beyond adds under 2%. The curves are
-# concave, so over-running wastes spend without degrading quality — which makes
-# the bound an economic decision, not a safety one.
-#
-# VERIFY_CMD (env var, default scripts/verify.sh): which verifier this loop is
-# bounding. Stage 5 of this lab overrides it —
+# VERIFY_CMD selects the verifier (default scripts/verify.sh); Stage 5 uses
 #   VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
-# — so the same attempt-budget/thrashing bookkeeper governs a task-specific
-# verifier without duplicating any of this file's logic.
-#
-# No dependencies beyond bash + shasum + the standard coreutils. State lives in
-# three small plain-text files, not one JSON blob — deliberately: the verifier's
-# raw output can contain quotes, backslashes, and newlines, which is exactly the
-# kind of content that's fragile to embed inside hand-rolled JSON. Keeping it in
-# its own file sidesteps the escaping problem instead of solving it cleverly.
-#
-#   .workflow/state.json           attempts, max_attempts, status — fixed-shape,
-#                                   safe to hand-write because every value in it
-#                                   is a number or a name from a known short list
-#   .workflow/verdict-hashes.txt   one hash per line, append-only within a loop
-#   .workflow/last-verdict.txt     the raw verifier output, byte for byte
+# MAX_ATTEMPTS sets the budget (default 3). The number is a judgment made before you start,
+# not after you are tired — pick it deliberately.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 3
 
 STATE_DIR=".workflow"
 STATE="$STATE_DIR/state.json"
-HASHES="$STATE_DIR/verdict-hashes.txt"
+HISTORY="$STATE_DIR/attempts.tsv"
 LAST_VERDICT="$STATE_DIR/last-verdict.txt"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"
 VERIFY_CMD="${VERIFY_CMD:-scripts/verify.sh}"
 mkdir -p "$STATE_DIR"
 
-write_state() {
-  # $1=attempts $2=max_attempts $3=status — all three are always a plain
-  # integer or a name from a fixed set, so this is safe to hand-write.
-  printf '{\n  "attempts": %s,\n  "max_attempts": %s,\n  "status": "%s"\n}\n' \
-    "$1" "$2" "$3" > "$STATE"
+hash12() {
+  if command -v shasum >/dev/null 2>&1; then shasum | cut -c1-12
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -c1-12
+  else cksum | tr -d ' \n' | cut -c1-12; fi
 }
 
-read_field() {
-  # $1=field name — extracts it from $STATE via the exact shape write_state
-  # always produces, one field per line.
-  sed -n "s/.*\"$1\": *\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p" "$STATE" | head -1
+write_state() { # attempts max status
+  printf '{\n  "attempts": %s,\n  "max_attempts": %s,\n  "status": "%s"\n}\n' "$1" "$2" "$3" > "$STATE"
 }
+read_field() { sed -n "s/.*\"$1\": *\"\\{0,1\\}\\([^\",}]*\\)\"\\{0,1\\}.*/\\1/p" "$STATE" | head -1; }
 
-hash_verdict() {
-  # $1=text — prefers shasum, falls back to sha256sum, then cksum, so
-  # hashing never hard-fails for lack of one specific tool (some minimal
-  # Git-for-Windows installs lack shasum but have sha256sum). The hash is
-  # only ever compared to itself for equality, never parsed, so cksum's
-  # shorter numeric output is fine too.
-  if command -v shasum >/dev/null 2>&1; then
-    printf '%s' "$1" | shasum | cut -c1-12
-  elif command -v sha256sum >/dev/null 2>&1; then
-    printf '%s' "$1" | sha256sum | cut -c1-12
-  else
-    printf '%s' "$1" | cksum | tr -d ' \n'
-  fi
+code_hash() {
+  local base="HEAD"
+  [ -f "$STATE_DIR/baseline" ] && base="$(cat "$STATE_DIR/baseline")"
+  { git diff "$base" -- src 2>/dev/null
+    git ls-files --others --exclude-standard -- src 2>/dev/null | while IFS= read -r f; do echo "== $f"; cat "$f"; done
+  } | hash12
 }
 
 case "${1:-check}" in
-
   reset)
     write_state 0 "$MAX_ATTEMPTS" READY
-    : > "$HASHES"
+    : > "$HISTORY"
     : > "$LAST_VERDICT"
-    echo "loop reset — budget ${MAX_ATTEMPTS}"
-    exit 0
-    ;;
-
+    echo "loop reset — budget ${MAX_ATTEMPTS} attempt(s)"
+    exit 0 ;;
   status)
     [ -f "$STATE" ] || { echo "no loop in progress"; exit 0; }
     echo "attempt $(read_field attempts)/$(read_field max_attempts)  status=$(read_field status)"
-    exit 0
-    ;;
-
+    exit 0 ;;
   check) ;;
   *) echo "usage: loop.sh [reset|check|status]" >&2; exit 3 ;;
 esac
 
 [ -f "$STATE" ] || bash "$0" reset >/dev/null
+ATTEMPTS="$(read_field attempts)"; MAX="$(read_field max_attempts)"
+STATUS="$(read_field status)"
+case "$STATUS" in
+  STOP_THRASHING|STOP_BUDGET)
+    echo "STOPPED ($STATUS) — this loop already ended. Escalate, or run ./scripts/loop.sh reset to"
+    echo "start a new bounded loop deliberately."
+    exit $([ "$STATUS" = STOP_THRASHING ] && echo 4 || echo 5) ;;
+esac
+
+CODE="$(code_hash)"
+PREV="$(tail -1 "$HISTORY" 2>/dev/null)"
+PREV_N="$(printf '%s' "$PREV" | cut -f1)"
+PREV_CODE="$(printf '%s' "$PREV" | cut -f2)"
+PREV_FAIL="$(printf '%s' "$PREV" | cut -f3)"
+PREV_KIND="$(printf '%s' "$PREV" | cut -f4)"
+
+if [ -n "$PREV" ] && [ "$CODE" = "$PREV_CODE" ]; then
+  echo "REDUNDANT RETRY — nothing under src/ has changed since attempt ${PREV_N} (code ${CODE})."
+  echo "Re-running the verifier on identical code cannot produce a different result, so this was"
+  echo "not counted. Make a change, or stop and escalate. Last verdict: .workflow/last-verdict.txt"
+  exit 6
+fi
 
 VERDICT="$(bash "$VERIFY_CMD" 2>&1)"; RC=$?
-HASH="$(hash_verdict "$VERDICT")"
 printf '%s' "$VERDICT" > "$LAST_VERDICT"
-
-ATTEMPTS="$(read_field attempts)"
-MAX="$(read_field max_attempts)"
+# The failure fingerprint covers HOW it failed: the failing checks and their detail lines.
+# Text from passing checks (e.g. a changed hunk count) must not make an identical failure look
+# new. A verifier with no ✗ lines is fingerprinted whole.
+SIG="$(printf '%s\n' "$VERDICT" | awk '/^✗/{p=1; print; next} p && /^    /{print; next} {p=0}')"
+[ -n "$SIG" ] || SIG="$VERDICT"
+FAIL_HASH="$(printf '%s' "$SIG" | hash12)"
 
 if [ "$RC" -eq 0 ]; then
   write_state "$ATTEMPTS" "$MAX" DONE
   echo "$VERDICT"
-  echo "DONE — green."
+  echo ""
+  echo "DONE — green at attempt $((ATTEMPTS + 1)) (code ${CODE})."
   exit 0
 fi
 
 ATTEMPTS=$((ATTEMPTS + 1))
+KIND="new-failure"
+[ -n "$PREV" ] && [ "$FAIL_HASH" = "$PREV_FAIL" ] && KIND="unsuccessful-repair"
+printf '%s\t%s\t%s\t%s\n' "$ATTEMPTS" "$CODE" "$FAIL_HASH" "$KIND" >> "$HISTORY"
+echo "$VERDICT"
+echo ""
 
-# Thrashing: the verifier said exactly this before. Edits are landing, the
-# outcome is not moving. More attempts will not help; a human must look.
-if grep -qFx "$HASH" "$HASHES" 2>/dev/null; then
-  echo "$HASH" >> "$HASHES"
+if [ "$KIND" = "unsuccessful-repair" ] && [ "$PREV_KIND" = "unsuccessful-repair" ]; then
   write_state "$ATTEMPTS" "$MAX" STOP_THRASHING
-  echo "$VERDICT"
-  echo "STOP — thrashing. Identical verdict at attempt ${ATTEMPTS} (hash ${HASH})."
-  echo "The diff is moving; the outcome is not. Escalate, do not retry."
+  echo "STOP — thrashing. Attempt ${ATTEMPTS}: the code changed again (code ${PREV_CODE} -> ${CODE}) and the"
+  echo "verifier failed in exactly the same way for the second time in a row (failure ${FAIL_HASH})."
+  echo "Edits are not converging. Escalate with .workflow/last-verdict.txt; do not keep editing."
   exit 4
 fi
-echo "$HASH" >> "$HASHES"
 
 if [ "$ATTEMPTS" -ge "$MAX" ]; then
   write_state "$ATTEMPTS" "$MAX" STOP_BUDGET
-  echo "$VERDICT"
-  echo "STOP — budget exhausted (${ATTEMPTS}/${MAX}). Escalate to a human."
+  echo "STOP — budget exhausted (${ATTEMPTS}/${MAX} attempts) and still failing. Escalate to a human."
   exit 5
 fi
 
 write_state "$ATTEMPTS" "$MAX" CONTINUE
-echo "$VERDICT"
-echo "CONTINUE — attempt ${ATTEMPTS}/${MAX} used."
+if [ "$KIND" = "unsuccessful-repair" ]; then
+  echo "UNSUCCESSFUL REPAIR — attempt ${ATTEMPTS}/${MAX}: the code changed (code ${PREV_CODE} -> ${CODE}) but the"
+  echo "verifier failed exactly as it did at attempt ${PREV_N}. One more identical outcome stops the loop."
+else
+  echo "CONTINUE — attempt ${ATTEMPTS}/${MAX} failed (failure ${FAIL_HASH}, code ${CODE})."
+fi
 exit 1

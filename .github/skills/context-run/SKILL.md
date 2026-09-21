@@ -35,9 +35,8 @@ paragraph. No code.
   when this skill's wrapper can answer the same question.
 - If `context-run.sh search` reports a rate cross-check disagreement, say so explicitly
   — do not silently pick one of the two rates.
-- `config/fee-schedule.yaml` is where current fee rates live — check it rather than
-  relying on memory, a comment, or a document. `LegacyPaymentUtils` is retired; confirm
-  any claimed dependency on it with `scripts/authority.sh` rather than a text match.
+- If the underlying command failed, report the failure the digest shows. Never present a
+  failed run as a clean digest.
 
 If you were invoked as a subagent, this digest is the entire value you return — make it
 self-sufficient.

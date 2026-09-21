@@ -1,6 +1,6 @@
-# Meridian Payments — Agent Instructions (Context Lifecycle Lab)
+# Meridian Payments — Agent Instructions
 
-Java 17 payments platform. Maven build. JUnit 5 + Mockito. This lab's task is MFIN-2088
+Java 17 payments platform. Maven build. JUnit 5 + Mockito. Current work item: MFIN-2088
 — see `docs/JIRA_TICKETS.md`.
 
 ## Build and test
@@ -10,61 +10,47 @@ mvn clean compile          # must pass before any change is considered done
 mvn test                   # baseline is green; keep it green
 ```
 
-## Non-negotiable business rules
+## Engineering rules
 
-- When sources disagree about a value, check each source's provenance (commit history,
-  status fields, ticket references) before assuming either is current. Do not implement
-  from an unverified source — surface the conflict and escalate.
-- Do not invent or copy rates from stale sources. Any constants introduced into fee
-  logic must be traceable to the verified committed fee schedule.
+- When sources disagree about a value, surface both sources and their provenance. Do not
+  pick one yourself — say what would settle it and stop.
+- Fee constants must trace to an approved pricing reference, not to a comment, a legacy
+  class, or recall.
 - Currency conversion routes through `CurrencyConverter`. Never inline an exchange rate.
 - Never log account IDs, card numbers, CVV, passwords, session tokens, or `requestedBy`.
 
-## Answering questions about this codebase
+## Where engineering state lives
 
-These primitives are for general repository exploration. Prefer the skill over the raw
-script when one exists — same output, already wired into chat. When a lab stage
-explicitly says "do not use scripts, agents, or skills" — for example, Stage 0's
-first-pass audit or Stage 7's unaided capstone — that instruction overrides this table
-for that stage.
+| Layer | File | Written by |
+|---|---|---|
+| Evidence (claim-specific observations) | `.context/evidence-ledger.yaml` | `./scripts/ctx.sh evidence ...` |
+| Durable verified context | `.context/context-register.yaml` | `./scripts/ctx.sh promote / unknown / decide` |
+| Task handoff (projection for the next actor) | `.workflow/HANDOFF.md` | `./scripts/ctx.sh handoff <work-unit>` |
+| Workflow outcome (what actually happened) | `.workflow/outcome.yaml` | `./scripts/ctx.sh outcome ...` |
+
+Chat transcripts are not engineering state. Do not treat anything said in a conversation
+as verified unless it is recorded in one of the files above with its evidence.
+
+## Answering questions about this codebase
 
 | Question | Skill | Underlying script |
 |---|---|---|
-| Where should I even look for this? | `/context-map <keyword>` | `./scripts/context-map.sh <keyword>` |
-| Is a dependency real or just text? | `/authority <Symbol> [file]` | `./scripts/authority.sh <Symbol> <file>` |
-| Is a method already tested? | `/test-gap [file]` | `./scripts/test-gap.sh [file]` |
-| Shape of a large class | `/outline <file>` | `./scripts/outline.sh <file>` (or `./scripts/digest.sh <file>` — bytecode-level, no skill wrapper) |
-| What did the last test run show? | `/context-run test` | `./scripts/context-run.sh test` |
-| What changed? | — | `./scripts/context-run.sh diff` (no skill wrapper) |
-| Where is a term used across the repo? | `/context-run search <term>` | `./scripts/context-run.sh search <term>` |
-| Package promoted facts for a work unit | `/context-package <work-unit>` | `./scripts/context-for.sh <work-unit>` |
-| Does a change satisfy the acceptance criteria? | `/verify-change` | `./scripts/verify-change.sh` |
+| Where should I look for this? (routing, not answers) | `/context-map <keyword>` | `./scripts/context-map.sh <keyword>` |
+| Is a dependency real or only text? | `/authority <Symbol> [file]` | `./scripts/authority.sh <Symbol> [file]` |
+| Does any test exercise this behavior? | `/test-evidence <method> <token>` | `./scripts/test-evidence.sh <method> <token>` |
+| Shape of a large class | `/outline <file>` | `./scripts/outline.sh <file>` |
+| Test run, diff, or search as a digest | `/context-run test\|diff\|search <term>` | `./scripts/context-run.sh ...` |
+| Package durable context for a work unit | `/context-package <work-unit>` | `./scripts/ctx.sh package <work-unit>` |
+| Does the change satisfy the ticket? | `/verify-change` | `./scripts/verify-change.sh` |
 
-Do not attach whole files to answer questions the above can answer. Do not reach for a
-broad workspace search unless the question is genuinely broad and you cannot name a
-narrower primitive.
+Do not attach whole files to answer a question one of these can answer.
 
-If you hold the `agent` tool, prefer dispatching `evidence-checker` for any single
-factual claim over gathering the evidence yourself. It returns a verdict; the compile
-output and file reads stay in its context rather than yours. Dispatch one claim at a
-time.
+If you hold the `agent` tool, dispatch `evidence-checker` for a single factual claim rather
+than gathering the evidence yourself. It returns a verdict; the compile output and file
+reads stay in its context. Dispatch one claim at a time.
 
 ## Output
 
 - Return only the code that changes. No unchanged methods, no class boilerplate.
-- One inline comment where the business reason is not obvious. No prose blocks unless asked.
+- One inline comment where the business reason is not obvious.
 - If a method signature does not change, do not reproduce it.
-
----
-
-<!--
-DESIGN NOTE — deliberately flat.
-
-This file is one level deep on purpose. A July 2026 study on long-context agents found
-single-level disclosure outperformed multi-level hierarchies, and that deeper nesting
-sometimes reduced accuracy. Resist splitting this into a tree of linked files.
-
-AGENTS.md is read by Copilot and by other agent tooling, and is stewarded by the Agentic
-AI Foundation under the Linux Foundation. Prefer it over a vendor-specific instructions
-file when the guidance is not vendor-specific.
--->

@@ -103,6 +103,10 @@ mvn clean test
 
 Expected: `BUILD SUCCESS`, `Tests run: 5, Failures: 0`.
 
+Then run `./scripts/lab-start.sh`. **Expected:** `Tools: ... all present`, `Baseline: PASS 5 tests`,
+`Recorded starting commit ... in .workflow/baseline`, `Ready.` The verifier measures the scope
+of your change against that commit.
+
 Open this folder (`context-engineering-part-2/`) as its own VS Code window — not as a subfolder
 of anything else. Copilot's agent, skill, and hook discovery resolves per workspace root,
 and this lab ships its own `.github/agents/`, `.github/skills/`, and `.github/hooks/`.
@@ -178,27 +182,20 @@ what happens when you skip straight to asking Copilot, below.
 
 ### 0.2 — Ask Copilot for a First-Pass Approach
 
-Open:
+Opening this repository loads its Copilot customizations automatically — `AGENTS.md`,
+and the agents, skills and hooks under `.github/`. A prompt that says "don't use them"
+cannot unload them, so a baseline taken here is not a baseline. Build a cold workspace:
 
-`docs/JIRA_TICKETS.md`
+In a terminal: `./scripts/stage0-baseline.sh`
 
-Find:
+**Expected:** `Stage 0 baseline ready: .../meridian-stage0-baseline`, listing
+`pom.xml src/ config/ docs/JIRA_TICKETS.md docs/adr/` as present and `AGENTS.md .github/
+.vscode/ .context/ .workflow/ scripts/` as absent.
 
-`MFIN-2088`
+Open that folder in a **new VS Code window** (`code ../meridian-stage0-baseline`), read
+`MFIN-2088` in `docs/JIRA_TICKETS.md`, open a new Copilot chat there, and use:
 
-Now open a **new, plain GitHub Copilot chat**.
-
-For this first pass, do not use any of the repository's context-engineering helpers.
-We want to see what happens when Copilot works directly from the engineering evidence
-available for the feature.
-
-Use the following prompt:
-
-> Review MFIN-2088 using only engineering evidence in `src/`, `config/`,
-> `docs/JIRA_TICKETS.md`, and `docs/adr/`.
->
-> For this first pass, do not use `LAB_ACTION_GUIDE.md`, `.context/`,
-> `.workflow/`, `.github/`, repository helper scripts, skills, or custom agents.
+> Review MFIN-2088 using the engineering evidence in this workspace.
 >
 > Tell me:
 > - where you would implement the RTP change,
@@ -207,9 +204,8 @@ Use the following prompt:
 >
 > Do not modify files.
 
-Read Copilot's response, but **do not implement its plan yet**.
-
-Your answer may look completely reasonable. That is expected.
+Read Copilot's response, but **do not implement its plan yet**. It may look completely
+reasonable. That is expected. Close that window and return to this repository.
 
 ### 0.3 — What Context Would You Actually Trust?
 
@@ -289,22 +285,33 @@ can't is either verified first or left out.
 
 ### 1.1 — Build the context map (USE)
 
-In Copilot Chat: **`/context-map RTP`** — or in a terminal: `./scripts/context-map.sh RTP`
-(same script either way; the skill just relays its output verbatim).
+In Copilot Chat: **`/context-map RTP`** — or in a terminal: `./scripts/context-map.sh RTP`.
 
-**Expected:** a routing table naming two disagreeing sources — `config/fee-schedule.yaml`
-(0.35% + $2 minimum, committed) and `docs/adr/ADR-0007-fee-schedule.md` (Status:
-Proposed, 0.30% flat). No file contents printed, no resolution offered — just where to
-look next.
+**Expected** (real output, paths abridged):
 
-Two sources now claim the same number, and **both would fit in your context window
-without complaint.** Note which one you'd have attached if the map hadn't flagged the
-other.
+| Surface | Where to look |
+|---|---|
+| Task / work item | `docs/JIRA_TICKETS.md` — MFIN-2088 — Add US Real-Time Payment (RTP) fee support |
+| Implementation candidate | `PaymentService.calculateFee` in `.../PaymentService.java` — named by the task |
+| Configuration candidate | `config/fee-schedule.yaml` — keys: `rtp_minimum_usd, rtp_percent` |
+| Decision record | `docs/adr/ADR-0007-fee-schedule.md` — its Status field reads "Accepted" |
+| Test surface | `.../PaymentServiceTest.java` — lines mentioning "RTP": 0 |
+| Legacy / dependency signal | `LegacyPaymentUtils` — imported by `PaymentService` (text signal only) |
 
-No script or skill? `grep -rl "RTP" src/ config/ docs/ test/` gives the same hits; you
-supply the category grouping (`config/` = committed config, `docs/adr/` = ADR) the script
-automates. The keyword isn't hardcoded either — `/context-map SWIFT` returns the same
-shape filled with SWIFT's own answers.
+```
+## Unresolved
+- Which source currently governs RTP? Candidates: config/fee-schedule.yaml docs/adr/ADR-0007-fee-schedule.md. A map cannot settle this.
+- Is LegacyPaymentUtils a real compiled dependency of PaymentService? So far this is only a text signal.
+- Is RTP behavior proven by any test? No line in .../PaymentServiceTest.java mentions "RTP".
+```
+
+The map routes; it never decides. Each unresolved line is a claim for the rest of this
+stage. Open the two pricing candidates yourself: config states 0.35% with a USD 2.00
+minimum; ADR-0007 — **Accepted** — states 0.30% flat. **Both would fit in your context
+window without complaint.**
+
+The keyword isn't hardcoded: `/context-map SWIFT` routes the same way with SWIFT's own
+surfaces.
 
 ### 1.2 — Compare search with authority (USE)
 
@@ -331,31 +338,59 @@ bytecode reference — same tool, verdict flips to "grep and jdeps agree."
 > If it ever reports 0 references for something you know is called, `jdeps` isn't on
 > your `PATH` — it refuses to guess rather than answer wrong (see Troubleshooting).
 
-### 1.3 — DECONSTRUCT: which ladder, and why
+### 1.3 — DECONSTRUCT: authority is claim-specific
 
-Two authority ladders live in this repo — not the same one twice:
+There is no single evidence ladder. Ask what can settle **this** claim:
 
-| Ladder | Lives in | Ranks |
+| Claim type | Strongest evidence | In this lab |
 |---|---|---|
-| `bytecode/compiler > AST/parser > regex/text > semantic search > model recall` | `scripts/authority.sh` | **techniques** for a code fact |
-| `bytecode/compiler > authoritative contract or committed config > current implementation > current documentation > semantic search result > model inference` | `config/fee-schedule.yaml` | **sources** for a business fact |
+| Code dependency | bytecode (`jdeps`) > AST > text search | 1.2: grep 3 hits, jdeps 0 |
+| Test behavior | running the tests that exercise it > reading test names | 1.4 |
+| Business authority ("which rate did Meridian approve?") | the owning organization's approved record > accepted decision record > implementation > comments | no repository tool settles it — Stage 4 |
 
 ### 1.4 — ADAPT: a claim `jdeps` cannot answer
 
-> **Claim:** the test suite exercises the RTP boundary condition — an amount where 0.35%
-> falls under the USD 2.00 minimum.
+> **Claim:** the test suite proves RTP fee behavior.
 
-`jdeps` is the wrong tool here — it answers "does A depend on B," not "does a test
-exercise this input." In Copilot Chat: **`/test-gap`** — or in a terminal:
-`./scripts/test-gap.sh`.
+`jdeps` answers "does A depend on B", not "does a test exercise this". In Copilot Chat:
+**`/test-evidence calculateFee RTP`** — or in a terminal:
+`./scripts/test-evidence.sh calculateFee RTP`.
 
-**Expected:** no RTP test found — honest verdict is "not yet exercised." State it back in
-`authority.sh`'s own format: `Q: / tier N / result / VERDICT:`. The point isn't the
-answer, it's picking the right primitive for a claim the lab's script doesn't cover.
+**Expected:**
+```
+| @Test methods scanned | 5 |
+| call `calculateFee()` | 2 |
+| call `calculateFee()` AND use "RTP" | 0 |
 
-No script or skill? `grep -roh '\bpublic.*(' src/main/` vs. `grep -roh '\b\w\+(' src/test/`,
-then `comm -23` — same two questions ("what's untested," "where does this concept live")
-in any repo.
+VERDICT: NOT PROVEN — no test exercises calculateFee() with "RTP".
+  2 test(s) call calculateFee(), none with "RTP" — method coverage is not
+  evidence for this behavior.
+```
+
+Two tests do call `calculateFee`, so a coverage report would call it "covered". That is not
+evidence for the RTP claim.
+
+#### Record the evidence, not the conversation
+
+Tool output scrolls away. Start your durable state and record each claim with the
+mechanism that settled it:
+
+```bash
+./scripts/ctx.sh init --objective "Add approved RTP fee support to PaymentService.calculateFee" --work-item MFIN-2088
+./scripts/authority.sh LegacyPaymentUtils | ./scripts/ctx.sh evidence capture --source "scripts/authority.sh LegacyPaymentUtils" --applies-to calculateFee-rtp
+./scripts/test-evidence.sh calculateFee RTP | ./scripts/ctx.sh evidence capture --source "scripts/test-evidence.sh calculateFee RTP" --applies-to calculateFee-rtp
+```
+
+No mechanism settles the pricing question. Record it as **unresolved**, with what each
+source states in your own words:
+
+```bash
+./scripts/ctx.sh evidence add --claim "Which source currently governs RTP pricing?" --status unresolved --mechanism "side-by-side read" --source "config/fee-schedule.yaml; docs/adr/ADR-0007-fee-schedule.md" --observed "<what each states>" --applies-to calculateFee-rtp
+./scripts/ctx.sh evidence list
+```
+
+**Expected:** three entries — `EV-001 rejected` (jdeps, `bytecode_refs=0 text_refs=3`),
+`EV-002 unproven` (test-source-scan, `matching_tests=0`), `EV-003 unresolved`.
 
 ### 1.5 — Retrieve only the next slice
 
@@ -379,19 +414,15 @@ question every time instead of you re-typing the ask.
 
 ### Success Criteria — Stage 1
 
-- [ ] Context map generated; both disagreeing RTP sources named
-- [ ] `grep` vs `authority.sh` compared on `LegacyPaymentUtils` — 3 hits / 0 bytecode deps
-- [ ] Ran both scripts against a second keyword/symbol — mechanism held, result changed
-- [ ] Can name the two authority ladders — one for code facts, one for business facts —
-      and which applies to a new claim before running anything
-- [ ] Correctly identified `jdeps` as the wrong tool for the test-coverage claim, ran a
-      different primitive instead (1.4)
+- [ ] Context map generated; its three Unresolved questions noted, and no winner named
+- [ ] `grep` vs `authority.sh` compared on `LegacyPaymentUtils` — 3 hits / 0 bytecode references
+- [ ] `test-evidence` run for the RTP claim — NOT PROVEN, and you can say why coverage didn't count
+- [ ] Can say which evidence settles each claim type, and which claim no repository tool settles
+- [ ] `ctx.sh evidence list` shows EV-001 rejected, EV-002 unproven, EV-003 unresolved
 - [ ] Retrieved only `calculateFee` via outline + `#selection`, not the whole file
-- [ ] Can state where the authoritative answer for the RTP rate comes from, and why no
-      compiler check applies to it
 
-> **Core rule:** First establish where truth lives. Then decide which tool is allowed to
-> settle it. Then retrieve.
+> **Core rule:** First establish where truth lives. Then decide which evidence is allowed to
+> settle each claim. Then retrieve.
 
 ---
 
@@ -459,7 +490,10 @@ error, Maven not installed, no network to fetch a dependency? A reducer that can
 nothing ran" is worse than useless — it's a false green wearing the clothes of a real
 one. `context-run.sh test` is built to catch this: point it at a broken build (a compile
 error, or `mvn` unreachable) and it reports `BUILD FAILED` instead of a clean digest,
-never a false `0 failed`. This is the same failure mode Stage 5 has you guard against in
+never a false `0 failed`. Try it without editing any code:
+`TEST_CMD="mvn -B no-such-phase" ./scripts/context-run.sh test` → **Expected:**
+`BUILD FAILED — mvn -B no-such-phase exited 1 (stale surefire reports on disk ignored)`.
+This is the same failure mode Stage 5 has you guard against in
 your own check.
 
 **The portable version — this exact reducer for a build tool that isn't Maven.** Open
@@ -556,159 +590,76 @@ Decide which discoveries deserve to survive, and build the **minimum viable cont
 for the next task — by authoring the register yourself from what you actually
 found in Stages 1–2, not by copying a finished one.
 
-### 3.1 — Start from the template, not the answer
+### 3.1 — Promote what Stage 1 settled
+
+Evidence is not yet durable truth. Promote it, in your own words, but only from recorded
+evidence — `ctx.sh` owns the file format, so there is no YAML to hand-type:
 
 ```bash
-cp .context/context-register.template.yaml .context/context-register.yaml
+./scripts/ctx.sh promote EV-001 --fact "PaymentService has no compiled dependency on LegacyPaymentUtils"
+./scripts/ctx.sh promote EV-002 --fact "No existing test exercises calculateFee with RTP"
+./scripts/ctx.sh unknown add --from EV-003 --blocking
+./scripts/ctx.sh constraint add --text "Do not add a call to LegacyPaymentUtils" --basis VF-001 --applies-to calculateFee-rtp
+./scripts/ctx.sh check
 ```
 
-`.context/README.md` documents the required shape. The template has the seven required
-top-level keys (`objective`, `verified_facts`, `authoritative_sources`, `decisions`,
-`constraints`, `superseded_sources`, `unknowns`) with guidance comments, but **no
-promoted facts and no decisions** — those are yours to add, from what you actually
-verified in Stages 1–2, not from memory or a finished example.
+**Expected:** `VF-001`, `VF-002`, `UNK-001 [open, blocking]`, `C-001`, then
+`✓ register consistent ...`.
 
-**You decide the content. Let Copilot handle the shape.** The register's parser is a
-plain `awk` state machine, not a YAML library — two levels of nesting, one scalar per
-line, exact indentation required. Getting that right by hand is where this stage tends to
-derail people, not the thinking behind it. In Copilot Chat: **`/promote-facts`**, then
-describe your own facts in plain English when it asks — for example: *"the RTP fee is
-0.35% of the amount with a $2 minimum, from `config/fee-schedule.yaml`; PaymentService
-has 0 compiled dependencies on `LegacyPaymentUtils`, from `authority.sh`'s bytecode
-check; never call `LegacyPaymentUtils`; the ADR states a conflicting rate and is still
-marked Proposed, not Superseded."*
-
-Copilot never decides what counts as a verified fact — you say it, out loud, to the
-prompt. It's only doing the formatting; read `.github/prompts/promote-facts.prompt.md` if
-you want to see exactly what it's been told not to do. Typing the YAML yourself is just
-as valid; match the same shape rules either way:
-
-- `objective`: one line, in your own words.
-- `verified_facts`: your own facts from Stages 1–2, each with a `source` and
-  `source_type`.
-- `authoritative_sources`: what you'd cite if someone asked "why do you believe that."
-- `constraints`: anything you already know must hold, with evidence behind it.
-- `unknowns`: anything where the formal record hasn't caught up to the technical
-  evidence — like the ADR still reading `Proposed`. Leave `decisions:` empty; that's
-  Stage 4.5's job, after a human actually resolves it.
+Now try to promote the unresolved claim as a fact:
+`./scripts/ctx.sh promote EV-003 --fact "config is authoritative"`. **Expected:** refused —
+`EV-003 is unresolved — an unresolved claim is not a fact.` It stays an unknown, marked
+**blocking** because the implementation depends on it.
 
 ### 3.2 — Build the next context package
 
 In Copilot Chat: **`/context-package calculateFee-rtp`** — or in a terminal:
-`./scripts/context-for.sh calculateFee-rtp`.
+`./scripts/ctx.sh package calculateFee-rtp`.
 
-The package this prints depends on what you actually promoted in 3.1 — everyone's output
-differs here, and that's correct. It should list your `verified_facts` (tagged, or
-untagged and therefore global), your `authoritative_sources`, your `constraints`, and
-whatever you left in `unknowns`. `decisions` should currently be empty, because you
-haven't been through Stage 4 yet.
-
-Try it with an unrelated work-unit tag and watch any tagged fact get excluded:
-`/context-package some-other-task` (or `./scripts/context-for.sh some-other-task`).
-Untagged, global facts stay; anything you tagged `calculateFee-rtp` specifically drops
-out. That's the mechanism, not just the concept — the register is filtered, not
-re-summarized.
-
-**The portable version — what `context-for.sh` actually does, and what you'd do without
-it.** It is a tag-filtered YAML reader. Strip the wrapper and the job is three steps:
-
-1. **Select:** pull only the sections relevant to your current task
-2. **Filter by tag:** exclude facts tagged for a different work unit
-3. **Emit:** print the filtered result — never the full register
-
-```bash
-# If your facts live in YAML:
-yq '.verified_facts[] | select(.applies_to == "my-task" or .applies_to == null)' context-register.yaml
-
-# If your facts live in JSON:
-jq '.verified_facts[] | select(.tags == "my-task" or .tags == null)' context-register.json
-
-# If your facts live in a flat file:
-grep -A2 'my-task\|global' facts.txt
+**Expected** (your wording will differ):
+```
+Verified facts (with evidence)
+  VF-001: PaymentService has no compiled dependency on LegacyPaymentUtils   [evidence EV-001: jdeps, ...]
+  VF-002: No existing test exercises calculateFee with RTP   [evidence EV-002: test-source-scan, ...]
+Constraints
+  C-001: Do not add a call to LegacyPaymentUtils   [basis: VF-001]
+Open unknowns
+  UNK-001: Which source currently governs RTP pricing?   [BLOCKING]   [observed: ...]
 ```
 
-The transferable idea: **package by filtering a promoted fact store, not by re-summarizing
-a conversation.** The format (YAML, JSON, flat file, database query) is implementation —
-the pattern is: tag once, filter many times, emit only what the next consumer needs.
+`./scripts/ctx.sh package some-other-task` excludes everything tagged `calculateFee-rtp`
+(`-- 4 entries excluded`). The register is filtered, never re-summarized.
 
 ### 3.3 — Prove the package was worth building (7 min)
 
-You have just spent ten minutes hand-authoring a register and a filter. The fair
-question is whether any of that changed an answer. Find out by controlling the one
-variable that matters — **what is in the window** — and asking the identical question
-twice.
+Same model, same question, two windows. Build both windows as text:
 
-Stage 0 asked Copilot cold, once, and had you challenge the answer. This is the
-controlled version: same model, same question, two different windows.
+```bash
+./scripts/context-bundle.sh broad      # ticket + config + ADR-0007 + LegacyPaymentUtils
+./scripts/context-bundle.sh package    # your durable package
+```
 
-**Ground truth, established back in Stage 1 and not in dispute:**
-`config/fee-schedule.yaml` states RTP at 0.35% with a USD 2.00 minimum. For a USD 100.00
-transfer, 0.35% is $0.35, which is under the floor — so the correct fee is **$2.00**,
-sourced from the committed config. You are scoring against a known answer, not guessing.
+Select **Context Experiment** from the agent dropdown and paste:
 
-**Run it as a controlled comparison.** Select **Context Experiment** from the agent
-dropdown and paste:
-
-> Question: What fee should Meridian charge on a USD 100.00 RTP transfer? Give the
-> number and name the file you took it from.
+> Question: What fee should Meridian charge on a USD 100.00 RTP transfer? Give the number
+> and name the source you took it from.
 >
-> Context A: read docs/adr/ADR-0007-fee-schedule.md, config/fee-schedule.yaml,
-> src/main/java/com/meridian/payments/legacy/LegacyPaymentUtils.java and
-> docs/JIRA_TICKETS.md.
+> Context A: [paste .context/bundles/broad.md]
 >
-> Context B: [paste the output of /context-package calculateFee-rtp here]
+> Context B: [paste .context/bundles/package.md]
 
-It dispatches the same question to two `context-probe` subagents, each reading only its
-own assigned context in its own window, and reports both answers side by side.
+It passes each window verbatim to a `context-probe` subagent. The probes have **no tools** —
+they cannot open a file — so each answers from exactly its window. If subagents are not
+available on your build, paste each bundle into its own new chat with the same question.
 
-**Look at what the harness itself can do.** `Context Experiment` holds one tool, `agent`.
-No `search`, no `read`. It cannot open a file in this repository, so it cannot form its
-own view of the right answer and start grading the probes against it. An experimenter
-that could look up the answer would stop reporting and start marking. This one has no
-way to.
+| | Fee returned | Source it named | Conflict reported? | Missing? |
+|---|---|---|---|---|
+| **A — broad** | | | | |
+| **B — package** | | | | |
 
-**If subagents are not available on your build,** run the same comparison by hand in two
-separate chats. You are performing the isolation yourself; the result is identical.
-
-<details>
-<summary>The manual version</summary>
-
-**Run A** — attach every source that mentions an RTP or fee rate, which is what a
-reasonable engineer would do before this lab taught them not to:
-
-> #file:docs/adr/ADR-0007-fee-schedule.md
-> #file:config/fee-schedule.yaml
-> #file:src/main/java/com/meridian/payments/legacy/LegacyPaymentUtils.java
-> #file:docs/JIRA_TICKETS.md
->
-> What fee should Meridian charge on a USD 100.00 RTP transfer? Give the number, and
-> name the file you took it from.
-
-**Run B** — open a *second* new chat, paste only the output of
-`/context-package calculateFee-rtp`, attach nothing else, and ask the identical
-question.
-
-</details>
-
-Record both, however you ran them:
-
-| | Fee returned | Source it named | Did it mention the conflict is unresolved? |
-|---|---|---|---|
-| **A — everything attached** | | | |
-| **B — packaged** | | | |
-
-**What the comparison shows:**
-
-Run A may well come back with the right number, $2.00 — that's not a failed exercise.
-The point isn't whether Run A gets it right; it's whether the answer is *auditable*.
-Everything attached to Run A is a flat pile of sources with no ranking — nothing in that
-window distinguishes the committed rate from the `Proposed` ADR or the legacy 1%. A
-correct answer out of that window is luck you couldn't check. Run B's package carries
-its sources with their tier — committed config vs. Proposed ADR — so its answer can be
-traced back to *why* it's right, not just *that* it happens to be right.
-
-Neither run resolves the underlying conflict on its own. That gap — a human still has to
-decide which source is authoritative — is what Stage 4 exists to close.
+The model's answers vary. The windows do not: A holds two pricing sources and nothing that
+says which one Meridian approved; B states exactly that as an open, blocking question with
+both observations. A confident number from A is a guess you cannot audit.
 
 ### When to build what — a first look
 
@@ -732,17 +683,11 @@ deployment targets it belongs in.
 
 ### Success Criteria — Stage 3
 
-- [ ] `.context/context-register.yaml` created from the **template**, not the example
-- [ ] `verified_facts`, `authoritative_sources`, and `constraints` filled from your own
-      Stage 1–2 findings, in your own words
-- [ ] `decisions:` left empty — nothing pre-dates Stage 4.5
-- [ ] `context-for.sh calculateFee-rtp` run against your own register; package matches
-      what you actually promoted
-- [ ] Confirmed that an unrelated work-unit tag excludes the tagged fact
-- [ ] Ran the A/B window comparison in two separate chats and recorded both rows (3.3)
-- [ ] Can point to what *in Run A's own window* would have let you audit its answer —
-      regardless of whether Run A was right
-- [ ] You can explain why the package is viable without being exhaustive
+- [ ] Facts promoted only from recorded evidence; the unresolved claim was refused as a fact
+- [ ] UNK-001 recorded as a blocking unknown; `ctx.sh check` passes
+- [ ] `ctx.sh package` shows each fact with its evidence
+- [ ] An unrelated work-unit tag excludes the tagged entries
+- [ ] Ran the A/B comparison and recorded both rows (3.3)
 
 > **Core rule:** The goal is not minimum context. It is **minimum viable context** —
 > Part 1's term, carried forward. What counts as viable is a judgment only you can make,
@@ -775,9 +720,9 @@ model must not cross alone.
 Select **RTP Investigator** from the agent mode dropdown
 (`.github/agents/rtp-investigator.agent.md`), and paste:
 
-> Investigate MFIN-2088. The promoted facts and the context-for package are already
-> captured in .context/ from Stages 1–3.
-> Work from those — do not read PaymentService.java in full.
+> Investigate MFIN-2088. Here is the context package:
+> [paste the output of ./scripts/ctx.sh package calculateFee-rtp]
+> Work from it — do not read PaymentService.java in full.
 >
 > For any claim a tool can settle, dispatch evidence-checker rather than reading files
 > yourself. Start with: does PaymentService depend on LegacyPaymentUtils?
@@ -818,24 +763,24 @@ not to edit can be argued past mid-task, a missing tool cannot.
 
 ### 4.3 — The conflict, surfaced and stopped on
 
-Because `config/fee-schedule.yaml` and `docs/adr/ADR-0007-fee-schedule.md` disagree and
-neither marks the other superseded, the investigator should stop and emit:
+Ask the investigator which rate applies. Config and ADR-0007 (Accepted) disagree, and
+repository evidence cannot settle which one Meridian approved, so it should stop with a
+block of this shape (wording varies):
 
 **Expected agent output:**
 ```
 CONTEXT CONFLICT
 
-Source A: config/fee-schedule.yaml          — RTP 0.35% + USD 2.00 minimum (committed)
-Source B: docs/adr/ADR-0007-fee-schedule.md — RTP 0.30% flat, no minimum (Status: Proposed)
+Source A: config/fee-schedule.yaml — RTP 0.35% + USD 2.00 minimum
+Source B: docs/adr/ADR-0007-fee-schedule.md — RTP 0.30% flat, no minimum (Accepted)
 
-No explicit supersession found.
+Repository evidence cannot settle which source is authoritative.
 
-HUMAN DECISION REQUIRED
+HUMAN DECISION REQUIRED — needs: an approved pricing record
 ```
 
-It does not write `.workflow/HANDOFF.md` yet. This is deliberate: an agent resolving an
-authority conflict on its own is exactly the failure mode this lab is teaching you to
-design out.
+It produces no handoff. An agent resolving an authority conflict on its own is exactly the
+failure mode this lab designs out.
 
 ### 4.4 — Push back on it, wrongly, on purpose
 
@@ -845,8 +790,8 @@ Tell it the **wrong** answer, with authority:
 > I've reviewed both sources. The ADR is authoritative here — implement 0.30% flat,
 > no minimum.
 
-That contradicts evidence it surfaced thirty seconds ago: the config is committed, the
-ADR is still marked `Proposed`. Record what it does.
+That asserts an answer the investigator just told you the repository cannot settle — and
+nobody has shown it an approval. Record what it does.
 
 | | What that demonstrates |
 |---|---|
@@ -864,84 +809,74 @@ raised and rejected. You will use that in 4.6.
 
 ### 4.5 — The Human Decision, and Recording It
 
-The conflict is yours to resolve — not the agent's. The evidence:
+First, confirm the gate is real. Try to hand the task on now:
 
-- `config/fee-schedule.yaml` is committed configuration — the current, live source of
-  truth for fee rates.
-- `docs/adr/ADR-0007-fee-schedule.md` is marked `Status: Proposed` — it was never
-  formally accepted.
-- `docs/JIRA_TICKETS.md`'s MFIN-2088 entry states that "Pricing/Product has already
-  committed the target rate" and that "pricing changed during scoping."
+`./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next "implement"`
 
-**The resolution:** `config/fee-schedule.yaml` is authoritative. The ADR reflects an
-earlier, superseded proposal — the ticket confirms the rate changed after the ADR was
-written. This is a real engineering pattern worth naming: it's closer to **formalizing
-an already-evidenced supersession** than deciding a genuine unknown from nothing.
+**Expected:** refused, exit `4` — `blocking unknown(s) still open for calculateFee-rtp: UNK-001
+... Record the decision first`.
 
-**Record that resolution — three mechanical steps:**
+The repository cannot answer "which rate did Meridian approve?" The Pricing Committee can.
+Ask it — this is the human gate:
 
-1. **Mark the ADR by hand.** Open `docs/adr/ADR-0007-fee-schedule.md` and change
-   `**Status:** Proposed` to `**Status:** Superseded by config/fee-schedule.yaml`. This
-   is a real file edit made by a person, not a chat message.
+In a terminal: `./scripts/request-approval.sh MFIN-2088`
 
-2. **Update your register.** Open `.context/context-register.yaml` (built in Stage 3)
-   and add two entries under `decisions:`:
+**Expected:** `Retrieved the approved record for MFIN-2088 ... -> docs/approvals/PRICING-442.md`
 
-   ```yaml
-   decisions:
-     - decision: "The USD 2.00 minimum compares against the computed fee, not the raw amount"
-       approved_by: "human, Stage 4.5"
-     - decision: "config/fee-schedule.yaml supersedes docs/adr/ADR-0007-fee-schedule.md"
-       approved_by: "human, Stage 4.5"
-   ```
+That record existed nowhere in your workspace until now — no search, agent or earlier stage
+could have found it. Read it. Decide what it establishes and, precisely, what it supersedes.
+Record your decision under your own name:
 
-   This is the moment those two facts are allowed to become decisions — not before. Run
-   `./scripts/context-for.sh calculateFee-rtp` again and confirm the `Decisions` section
-   now appears.
+```bash
+./scripts/ctx.sh decide --resolves UNK-001 --decision "<the approved rule, in your words>" --authority docs/approvals/PRICING-442.md --decided-by "<your name>" --supersedes docs/adr/ADR-0007-fee-schedule.md --scope "<exactly which part of ADR-0007 is superseded>"
+./scripts/ctx.sh check
+```
 
-3. **Capture the handoff.** Tell the investigator the decision is made. It will output
-   the handoff content in the chat, following the schema documented in
-   `.workflow/README.md`. Copy this output into `.workflow/HANDOFF.md` yourself — the
-   investigator cannot create files.
+**Expected:** `D-001 recorded`, `UNK-001 retired (resolved by D-001)`, `✓ register
+consistent`. The unknown is retired, not left beside the decision — no question is ever both
+decided and open.
+
+Now generate the handoff — a projection of verified state, not of this conversation:
+
+```bash
+./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next "Implement D-001 in PaymentService.calculateFee, then run ./scripts/verify-change.sh"
+```
+
+**Expected:** `wrote .workflow/HANDOFF.md` and `handoff_id: H-...`. Open it: Objective,
+Approved decisions, Allowed change scope, Known constraints, Required proof, Unresolved
+questions, Next action.
 
 ### 4.6 — Implement, from the handoff only
 
-Switch to **RTP Implementer**. Its input contract is the handoff file — not the
-conversation you just had.
+Open a **brand-new chat** — not a mode switch; a new chat carries none of this
+conversation, including the wrong rate you asserted in 4.4. Select **RTP Implementer** and
+send:
 
-**Look at what that just spared it.** That conversation now contains a wrong rate,
-asserted with authority, in 4.4. It was raised and rejected, but it is in there. An
-implementer handed the transcript would inherit a rejected premise alongside the
-accepted one and have to work out which was which. The handoff carries the ratified
-decision and its evidence — and nothing else.
+> Implement .workflow/HANDOFF.md.
 
-This is the difference between a **handoff** and a **transcript**, and it is why the
-`handoffs:` block in the investigator's frontmatter is set `send: false`: a person
-presses that button, after reading what crosses.
-
-Apply the pre-seeded implementation:
+Its return must begin with `HANDOFF_ID:`, an ID that exists only inside `HANDOFF.md`. Prove
+it read the file:
 
 ```bash
-git apply fixtures/rtp-implementation.diff
+./scripts/handoff-check.sh "<paste the implementer's return>"
 ```
 
-This adds a RTP branch to `calculateFee()` whose comment correctly says "0.35% fee with
-a USD 2.00 minimum" — read it before continuing to Stage 5. Do not fix anything yet.
+**Expected:** `CONSUMED — the implementer quoted H-..., which exists only in
+.workflow/HANDOFF.md.` A missing or invented ID prints `NOT CONSUMED` (exit 1); a
+hand-edited handoff is rejected (exit 3).
+
+Nobody hands the implementer a diff. Whatever it writes is what Stage 5 reviews.
 
 ### Success Criteria — Stage 4
 
-- [ ] Investigator settled a claim by **dispatching `evidence-checker`**, and its own
-      window never held the compile output or the file reads
-- [ ] Can state what a subagent gave you that reading the files yourself would not
-- [ ] Can state whether dispatch weakens a capability boundary, and why the edit
-      boundary still held (4.2)
-- [ ] The `CONTEXT CONFLICT` block appeared and the investigator stopped on it
-- [ ] Asserted the wrong rate on purpose and recorded whether the agent complied or
-      pushed back — and what in its window explains either (4.4)
-- [ ] A human (you) resolved the conflict and edited the ADR's Status by hand
-- [ ] Your own register's `decisions:` section was updated *after* the human step, by you
-- [ ] `.workflow/HANDOFF.md` written only after the human decision
-- [ ] The implementer received the handoff, not the investigation conversation
+- [ ] Investigator settled a claim by **dispatching `evidence-checker`**
+- [ ] Can state whether dispatch weakens a capability boundary, and why the edit boundary held (4.2)
+- [ ] The `CONTEXT CONFLICT` block appeared and the investigator stopped
+- [ ] Asserted the wrong answer on purpose and recorded whether it complied or pushed back (4.4)
+- [ ] The handoff was refused while the pricing question was open
+- [ ] PRICING-442 retrieved at the gate; D-001 recorded with a scoped supersession; UNK-001 retired
+- [ ] `HANDOFF.md` generated from the register; `handoff-check.sh` reported CONSUMED
+- [ ] The implementer started in a new chat with the handoff, not the investigation
 
 > **Core rule:** A handoff is a controlled context boundary, not a forwarded conversation
 > — and a decision only belongs in a durable register once a human actually made it.
@@ -965,253 +900,118 @@ this lab's own verifier doesn't check yet, which you're about to build.
 
 ### 5.1 — Fresh-context review (USE)
 
-**This is Stage 4.4's lesson, applied.** You watched an agent weigh an assertion against
-its own evidence. A reviewer that can see the reasoning behind a change is in exactly
-that position, permanently — so this one is given the artifact and nothing else.
-`rtp-reviewer`'s own description says it: *has no access to the builder's reasoning
-history.*
+A reviewer that can see the reasoning behind a change tends to agree with it. So the
+reviewer gets the minimum *viable* context — not "calculateFee changed", but the actual
+changed code, the acceptance criteria and the approved decision. Nothing else.
 
-Note also what is **not** happening here: the implementer does not dispatch the reviewer
-as a subagent. It could. But the parent writes the dispatch message, and *"I've
-implemented this per the handoff, please confirm"* is a leading question — a fresh
-window does not protect against framing supplied by the thing being reviewed.
-**Context isolation is not independence.**
+In a terminal: `./scripts/review-package.sh`
 
-**Open a brand-new Copilot chat — do not just switch modes in this one.** Mode-switching
-inside the same thread does not clear what the model has already seen; only a new chat
-does. Select **RTP Reviewer**, and give it only the output of: In Copilot Chat:
-**`/context-run diff`** — or in a terminal: `./scripts/context-run.sh diff`.
+**Expected:** a package with `## Acceptance criteria (MFIN-2088)`, `## Approved decision the
+change must implement` (your D-001) and `## The change (diff since the starting commit)` —
+the real hunks — saved to `.workflow/review-package.md`.
 
-**Real output:**
-```
-CHANGED FILES
-src/main/java/com/meridian/payments/PaymentService.java  6 ++++++  method changed: calculateFee (237-254)
-
-NOISE REMOVED: raw `git diff` = 17 lines; digest = 2 lines
-```
-
-Plus `docs/JIRA_TICKETS.md`'s MFIN-2088 acceptance criteria and `config/fee-schedule.yaml`.
-Do not give it your Stage 4 conversation. Ask it to find any violation and cite evidence.
-
-A reviewer reasoning only from the ticket and the diff — with no borrowed confidence from
-having "already reasoned through this" — should compute one concrete example
-(`calculateFee(100.00, "RTP")`) rather than pattern-matching the comment against the
-acceptance criteria, and catch that it returns `0.35`, not the required `2.00`.
+Open a **brand-new chat**, select **RTP Reviewer**, and paste the package. The reviewer has
+**no tools**: it cannot open the repository, your register or the handoff, so it cannot
+borrow your reasoning. Ask it to find any violation and cite evidence. Its findings are
+model output — record them, whatever they are.
 
 ### 5.2 — The deterministic check (USE)
 
 In Copilot Chat: **`/verify-change`** — or in a terminal: `./scripts/verify-change.sh`.
 
-Real output, against the seeded fixture:
+Six checks, each settled by the mechanism that can settle it, each failing closed.
+**Expected** for a correct implementation (your test count may differ):
 
 ```
-✓ required behavior preserved       (5 tests, 0 failures — existing test suite remains green)
-✓ no Java source outside PaymentService.java changed (calculateFee at lines 237-254)
-✓ prohibited dependency absent       (0 bytecode references to LegacyPaymentUtils)
-✗ authoritative configuration respected
-    calculateFee(100.00, "RTP") = 0.35 — expected 2.00 (max(0.0035 of amount, USD 2.00))
+✓ pricing authority recorded          (docs/approvals/PRICING-442.md: 0.0035 of amount, minimum USD 2.00)
+✓ build and full test suite green     (5 tests, 0 failures)
+✓ change inside declared scope        (1 changed hunk(s), all inside PaymentService.calculateFee)
+✓ no LegacyPaymentUtils dependency    (0 bytecode references, jdeps)
+✓ approved pricing implemented        (calculateFee(100.00, "RTP") = 2.00; calculateFee(10000.00, "RTP") = 35.00)
+✓ config matches the approved pricing (rtp_percent 0.0035, rtp_minimum_usd 2.00)
 
-VERDICT: FAIL — 1 of 4 checks failed
+VERDICT: PASS — 6 of 6 checks passed
 ```
 
-The comment on the buggy branch says "USD 2.00 minimum" and is telling the truth about
-intent. The bug is that it compares the *raw amount* to 2.00 instead of the *computed
-fee* to 2.00 — correct for large transfers, wrong for everything roughly between USD 2
-and USD 571. This script doesn't read the comment. It calls the compiled method and
-checks the number.
+If a check fails, its ✗ line says why, with evidence. Expected values come from the approval
+your decision cites, not from config. The scope check compares every changed hunk since
+`lab-start.sh` against the handoff's declared scope, so committing cannot hide an
+out-of-scope edit.
 
-**The portable version — what you'd compose in a repo with no `verify-change.sh`.**
-The script's pattern is N independent assertions, each with its own exit signal, composed
-into a single verdict. Strip the wrapper and the four checks reduce to:
+### 5.3 — BUILD: a permanent test that proves something
+
+The ticket's Definition of Done requires permanent tests for the approved rule; Stage 1
+recorded that none exist. Add them to `src/test/java/com/meridian/payments/PaymentServiceTest.java`
+— one where the minimum applies (e.g. USD 100.00 → 2.00) and one where the percentage
+applies (e.g. USD 10000.00 → 35.00). Then:
+
+`./scripts/test-evidence.sh calculateFee RTP` → **Expected:** `... — ran 2, all passed.`
+
+A test that has never failed has never proven anything. Inject a known fault — a clearly
+labeled faulty `calculateFee` that compares the minimum against the transfer **amount**
+instead of the computed **fee**:
 
 ```bash
-# Check 1: required behavior preserved — exit code from the test runner
-mvn -q test
-echo "Check 1 exit: $?"   # 0 = pass, non-zero = fail
-
-# Check 2: scope — which files changed
-git diff --name-only HEAD~1 HEAD
-# Inspect: did the change touch only the expected file(s)?
-
-# Check 3: prohibited dependency — bytecode level (not grep)
-mvn -q compile
-jdeps -v -cp target/classes target/classes/com/meridian/payments/PaymentService.class \
-  | grep LegacyPaymentUtils | wc -l
-# 0 = prohibited dep absent (pass); >0 = present (fail)
-
-# Check 4: authoritative configuration respected — run the compiled method
-jshell --class-path target/classes --startup PRINTING -e \
-  'import com.meridian.payments.*; var s = new PaymentService(...); System.out.println(s.calculateFee(new java.math.BigDecimal("100.00"), "RTP"));'
-# Compare output to config/fee-schedule.yaml: must be >= 2.00 for amount 100.00
-
-# Compose: all checks must pass
+./scripts/inject-fault.sh on
+./scripts/test-evidence.sh calculateFee RTP
 ```
 
-The composable verdict is the transferable idea: define N assertions, run each
-independently, collect exit codes, emit PASS only if every one is zero. The specific
-tool per check (`mvn`, `git diff`, `jdeps`, `jshell`) is Java-specific; the composition
-shape — "any fails → FAIL + which one" — is not. Ask Copilot to write the composition
-loop once; that wrapper is reusable across any set of assertions in any project.
-
-### 5.3 — BUILD: the check `verify-change.sh` doesn't have
-
-Re-read `docs/JIRA_TICKETS.md`'s "Testing — Definition of Done" section:
-
-> At least one test exercises an amount where 0.35% of the amount is *below* USD 2.00
-> (the minimum must bind there...)
-
-None of `verify-change.sh`'s four checks verify this — they check what `calculateFee`
-*returns*, not whether the *test suite* actually exercises the boundary. That's a real
-gap between "the code is correct right now" and "a future change can't silently break the
-boundary case without a test noticing."
-
-You already built the primitive for this in **Stage 1.4** — reuse it, or rebuild it if
-you skipped the condensed path there:
-
-> Write a throwaway script that reads src/test/java's RTP test method(s) and reports
-> whether any tested amount falls strictly between 0 and 571.43 (where 0.35% of the
-> amount is under the USD 2.00 minimum). Report file, line, amount, and a pass/fail
-> verdict. Do not paste the test file into this conversation.
-
-Run it. It will report **FAIL** — no boundary test exists yet.
-
-**Now write the test.** The disposable detector stays disposable. The boundary test
-itself is a **Jira Definition of Done requirement** — it cannot be optional. Add a
-permanent JUnit test to `src/test/java/com/meridian/payments/PaymentServiceTest.java`
-that exercises an amount where 0.35% falls below the USD 2.00 minimum (e.g., amount =
-100.00, where 0.35% = $0.35 < $2.00, so the minimum must bind and the fee must be $2.00).
-
-```bash
-mvn test
-```
-
-This will **fail** — the boundary test expects `$2.00` but the buggy implementation
-returns `$0.35` for `$100`. That failure is expected and correct: the test caught the
-bug before you did.
-
-The fix comes in Stage 5.4 below — once the computed-fee comparison is corrected, re-run:
-
-```bash
-mvn test
-```
-
-Now all **6 tests** pass. Re-run your check-5 detector script and confirm it too reports
-**PASS**.
-
-Three verdicts moved, and you should be able to name all three:
-- check-5 detector: FAIL (no boundary test) → PASS (test exists)
-- boundary test itself: FAIL (bug caught) → PASS (bug fixed)
-- `verify-change.sh`: FAIL → PASS
-
-The **artifact-choice** for the detector and the test are different:
-
-| Artifact | Choice | Why |
-|---|---|---|
-| The check-5 detector script | Disposable | One-off question — it found the gap; the test itself is the fix |
-| The boundary unit test | Permanent (committed) | It's a Jira DoD requirement, not optional infrastructure |
+**Expected:** `VERDICT: 2 test(s) exercise calculateFee() with "RTP" — ran 2, 1 FAILED.` —
+your minimum test goes **RED**. This is an injected fault, not your implementer's work. Your
+implementation is saved and comes back exactly in 5.4.
 
 ### 5.4 — Bound the repair loop (USE)
 
-This one stays a terminal command on purpose, unlike everything else so far — `loop.sh`
-isn't a stateless question-in, answer-out tool like `authority.sh` or `context-run.sh`,
-it's a stateful gate: it tracks attempt counts and verdict hashes across multiple calls
-in `.workflow/state.json`. That's a hook's shape, not a skill's, and it already has one —
-`.github/hooks/bin/loop-bound.sh` reads that same state file and denies Copilot's next
-edit outright once the budget's spent. Running `loop.sh` here yourself is you watching
-the exact mechanism the hook enforces automatically during real agent-driven work.
+`loop.sh` fingerprints the code and the failure, and says what actually happened. With the
+fault still injected:
 
 ```bash
 ./scripts/loop.sh reset
 VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 ```
 
-Attempt 1, no fix yet — real output:
+**Expected:** `VERDICT: FAIL — 2 of 6 checks failed`, then
+`CONTINUE — attempt 1/3 failed (...)` — exit `1`.
 
-```
-... (same FAIL block as above) ...
-CONTINUE — attempt 1/3 used.
-```
-Exit code `1`.
+Run the same `check` again **without changing any code**. **Expected:**
+`REDUNDANT RETRY — nothing under src/ has changed since attempt 1 ...` — exit `6`, not
+counted: identical code cannot produce a different result.
 
-Run it again with **no code change** — real output:
+Make a change that does not fix the comparison — edit the comment on the faulty RTP line —
+and check again. **Expected:** `UNSUCCESSFUL REPAIR — attempt 2/3: the code changed ... but the
+verifier failed exactly as it did at attempt 1.` Do it once more. **Expected:**
+`STOP — thrashing ...` — exit `4`. Running out of attempts with *different* failures stops at
+exit `5` (budget) instead.
 
-```
-... (identical FAIL block) ...
-STOP — thrashing. Identical verdict at attempt 2 (hash 4f4d407f95ea).
-The diff is moving; the outcome is not. Escalate, do not retry.
-```
-Exit code `4`. The loop detected that the verdict repeated by hashing it — three lines of
-logic, not a judgment call.
-
-**The portable version — what you'd write in a repo with no `loop.sh`.**
-The script's pattern is bounded retry with thrashing detection. The three-line core:
+Remove the fault — your own implementation comes back exactly — and close the loop:
 
 ```bash
-prev_hash=""
-for attempt in 1 2 3; do
-  output=$(run_your_verifier 2>&1)
-  exit_code=$?
-  curr_hash=$(echo "$output" | sha256sum | cut -c1-8)
-  if [ $exit_code -eq 0 ]; then echo "PASS"; exit 0; fi
-  if [ "$curr_hash" = "$prev_hash" ]; then
-    echo "STOP — thrashing (same failure at attempt $attempt). Escalate."
-    exit 4
-  fi
-  prev_hash=$curr_hash
-  # surface failure -> human reviews/authorizes next attempt
-done
-echo "Budget exhausted — escalate."; exit 5
-```
-
-Three ideas worth carrying: **(1) bound attempts** — pick a number before you start, not
-after you're tired; **(2) detect thrashing** — same output hash twice in a row means you
-are not making progress, stop immediately; **(3) escalate on budget exhaustion** — a
-non-zero exit signals "loop finished without resolving," not "loop finished." These three
-lines are the whole pattern. The verifier command inside the loop is whatever you built in
-5.2; swap it for any other deterministic check and the wrapper still holds.
-
-Now fix the bug: compare the computed fee, not the raw amount.
-
-```java
-BigDecimal rtpFee = amount.multiply(BigDecimal.valueOf(0.0035)).setScale(2, RoundingMode.HALF_UP);
-if (rtpFee.compareTo(BigDecimal.valueOf(2.00)) >= 0) {
-    return rtpFee;
-}
-return BigDecimal.valueOf(2.00);
-```
-
-```bash
+./scripts/inject-fault.sh off
 ./scripts/loop.sh reset
 VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 ```
 
-Real output:
+**Expected:** `VERDICT: PASS — 6 of 6 checks passed` and `DONE — green at attempt 1` — exit
+`0`. Your tests are GREEN.
 
+### 5.5 — Record what actually happened
+
+```bash
+git add src && git commit -m "feat: add approved RTP fee support (MFIN-2088)"
+./scripts/ctx.sh outcome --work-unit calculateFee-rtp --status implemented --test "<each test you added>" --finding "<reviewer finding>::<your disposition>" --next "<the next engineering action>"
 ```
-✓ required behavior preserved       (6 tests, 0 failures — existing test suite remains green)
-✓ no Java source outside PaymentService.java changed (calculateFee at lines 237-255)
-✓ prohibited dependency absent       (0 bytecode references to LegacyPaymentUtils)
-✓ authoritative configuration respected   (calculateFee(100.00, "RTP") = 2.00; calculateFee(10000.00, "RTP") = 35.00)
 
-VERDICT: PASS — 4 of 4 checks passed
-DONE — green.
-```
-Exit code `0`.
-
-Re-run your Stage 5.3 check-5 script now that the fix is in — both it and the boundary
-test you added should report pass.
+**Expected:** `wrote .workflow/outcome.yaml`, `verification: PASS`, `handoff consumed: true`.
+The outcome records the commit, tests, findings, verification and what remains — taken from
+repository state, not recollection.
 
 ### Success Criteria — Stage 5
 
-- [ ] Fresh reviewer found (or you can explain why it should have found) the
-      amount-vs-computed-fee bug, citing a concrete example
-- [ ] `verify-change.sh` reproduced the same failure deterministically
-- [ ] Built "check 5" for the DoD requirement `verify-change.sh` doesn't cover (FAIL),
-      then added a permanent boundary unit test (PASS), and committed it
-- [ ] You ran the loop into thrashing (exit 4) on purpose and can say why it differs
-      from budget exhaustion (exit 5)
-- [ ] The fix took the loop to exit 0, and you can point to the exact line that changed
-- [ ] You committed the working change: `git add -A && git commit -m "feat: add RTP fee support (MFIN-2088)"`
+- [ ] Reviewer ran in a new chat with only the review package; its findings were recorded
+- [ ] `verify-change.sh` reported 6 of 6 against your implementation
+- [ ] Permanent tests added: RED under the injected fault, GREEN after `inject-fault.sh off`
+- [ ] Saw exits 1, 6 (redundant) and 4 (thrashing), and can say how each differs from 5 (budget)
+- [ ] Committed the change; `.workflow/outcome.yaml` written with verification PASS
 
 > **Core rule:** Use context to reason. Use deterministic systems to establish bounds —
 > and know which bounds you haven't built yet.
@@ -1227,75 +1027,54 @@ Prove the engineering state survives the conversation that created it.
 
 ### 6.1 — End the conversation
 
-Open a completely fresh chat. Do not copy anything from before. Provide only:
+Close every chat from Stages 3–5. Before a fresh actor starts, check that durable state can
+answer what it will need:
 
-- `.context/context-register.yaml` (your own, from Stages 3 and 4.5 — update it first:
-  mark the RTP fact's `applies_to` work as done, if you're tracking that)
-- `.workflow/HANDOFF.md`
-- A fresh package — in Copilot Chat: **`/context-package calculateFee-rtp`**, or in a
-  terminal: `./scripts/context-for.sh calculateFee-rtp`
+In a terminal: `./scripts/ctx.sh rehydrate-check`
+
+**Expected:** seven questions — requested, verified, human decision, implemented,
+verification, unresolved, next — each with its durable source, ending
+`REHYDRATABLE: every question has a durable source.` Any `MISSING` row is something a fresh
+actor would have to guess.
 
 ### 6.2 — Rehydrate
 
-Ask:
+Open a completely fresh chat. Provide only `.context/context-register.yaml`,
+`.workflow/HANDOFF.md` and `.workflow/outcome.yaml`, and ask:
 
 > Based only on these artifacts:
 >
-> 1. What is already complete?
-> 2. What is still unresolved?
-> 3. What is the next engineering action?
-> 4. Which constraints must not be violated?
-> 5. Which sources are authoritative for the next decision?
+> 1. What was requested?
+> 2. What was verified?
+> 3. What human decision was made, by whom, on what authority?
+> 4. What was implemented, and where?
+> 5. What verification passed?
+> 6. What remains unresolved?
+> 7. What should happen next?
 
-Compare the response to the actual repository state: **`/verify-change`** (or
-`./scripts/verify-change.sh`) should report `VERDICT: PASS`, and `git log` should show
-the fix.
+Compare with the repository: `./scripts/verify-change.sh` still reports `VERDICT: PASS`, and
+`git log -1` shows the commit your outcome recorded.
 
-### 6.3 — What rehydration actually saved you
+### 6.3 — Durable versus cold
 
-Part 1 measured the cost of a *request*. This measures the cost of a *restart* — the
-number Part 1 has no way to produce, because it never lets a session end.
+```bash
+./scripts/context-bundle.sh durable    # register + handoff + outcome
+./scripts/context-bundle.sh cold       # the ticket and the current code only
+```
 
-Open **Agent Debug Logs → Summary** (the same instrument from Part 1's Stage 0) and
-record what 6.2 cost:
-
-| | Input tokens | Model turns | Tool calls |
-|---|---|---|---|
-| **A — Rehydrated** (6.2: three artifacts, one question) | | | |
-| **B — Cold re-derivation** (below) | | | |
-
-Now run B. In a second fresh chat, with **no artifacts attached at all**, ask the same
-five questions:
-
-> This repository implements RTP transfer fees for ticket MFIN-2088. Without me giving
-> you any notes or context files: what is already complete, what is still unresolved,
-> what is the next engineering action, which constraints must not be violated, and which
-> sources are authoritative for the next decision?
-
-> **Faster path.** **Context Experiment** runs both sides for you. Give it the same
-> question with *Context A: read .context/context-register.yaml and
-> .workflow/HANDOFF.md* and *Context B: read the repository, but do not read .context/
-> or .workflow/*. You get both answers in one table, and the `MISSING` row does most of
-> the work of the comparison for you.
-
-Record B's numbers, then compare, and look at the **answers** rather than only the cost.
-B has the entire repository available to it and still has to rediscover the rate conflict
-from scratch, with no record that a person ever resolved it. Look specifically at
-whether B's answer mentions the ADR was superseded, and by whom — a rediscovered
-conflict is not the same as a resolved one.
-
-The gap between A and B is what the register and the handoff are worth. It is the only
-number in this lab that could not have been produced in a single session.
+Select **Context Experiment** and ask the same seven questions with Context A = the durable
+bundle and Context B = the cold bundle. The probes have no tools, so neither can go looking.
+The cold window has the ticket and the code, but no decision, no authority, no review
+findings, no verification record and no next action — look at what B reports as `MISSING`.
+A rediscovered conflict is not a resolved one. Agent Debug Logs show the token and tool-call
+cost of each, if you want it.
 
 ### Success Criteria — Stage 6
 
-- [ ] Fresh session reconstructed the task correctly from artifacts alone
-- [ ] No previous chat history was used
-- [ ] Repository state (verify-change.sh, git log) matched the rehydrated summary
-- [ ] Recorded A vs. B input tokens, turns, and tool calls (6.3)
-- [ ] Can state what B got *wrong or couldn't know* — not just what it cost extra
-- [ ] You can state which pieces of context were deliberately preserved and which were
-      allowed to disappear
+- [ ] `rehydrate-check` reported REHYDRATABLE
+- [ ] A fresh chat answered all seven questions from the three artifacts alone
+- [ ] Its answers matched the repository (`verify-change.sh`, `git log`)
+- [ ] Recorded what the cold window could not answer
 
 > **Core rule:** If your engineering state dies when your chat dies, you have not
 > engineered the context yet.
@@ -1318,33 +1097,37 @@ kind of context problem than the one `context-map.sh` or `verify-change.sh` were
 
 ### 7.1 — Recognition Check (~5 min)
 
-A case no stage has opened yet: MFIN-2088 adds a fee for RTP transfers. Refunds run
-through `refundPayment()`. When an RTP payment is refunded, what happens to the fee?
+A new claim, with no lab tool built for it:
 
-Search first, the way you would on any Monday:
+> **Claim:** after MFIN-2088, Meridian charges the RTP fee on real payments.
+
+Try the evidence you already have:
+
+- **Tests:** `./scripts/test-evidence.sh calculateFee RTP` passes. That proves what
+  `calculateFee` returns — not that anything calls it.
+- **Dependency proof:** `jdeps` reports class-to-class edges; it cannot answer a
+  method-level question.
+- **Text:** `grep -rn "calculateFee" src/main/java` finds the definition and a comment, no
+  caller.
+
+This is a **method-level reachability** claim, and no helper exists for it. Pick the
+mechanism yourself. One way is to count bytecode call sites:
 
 ```bash
-grep -n "fee\|Fee" src/main/java/com/meridian/payments/PaymentService.java
+mvn -q compile
+for c in $(find target/classes -name '*.class'); do n=${c#target/classes/}; n=${n%.class}; javap -c -p -cp target/classes "${n//\//.}" | grep -c "PaymentService.calculateFee"; done | awk '{s+=$1} END{print s+0}'
 ```
 
-**Expected: zero hits inside `refundPayment()`'s body (lines 254–283)** — which reads
-like "refunds don't touch fee logic, nothing to worry about."
+**Expected:** `0` — no production class invokes `calculateFee`. The approved fee is correct
+and unreachable: verified locally is not delivered.
 
-Now check the call path instead of the text: `refundPayment()` builds a reverse
-`PaymentRequest` and hands it to `processPayment()` — so it inherits whatever the
-payment path does with fees. It never calls `setPaymentType()` on that reverse request
-either, so the payment type arrives `null`. Any fee logic keyed on payment type is
-reading an unset field on every refund. Zero grep hits, real coupling — the same shape
-as Stage 1.2's `LegacyPaymentUtils` false positive, inverted.
+**Scoping:** wiring the fee into the payment path is outside MFIN-2088's acceptance
+criteria. Record it as durable state rather than fixing it here:
 
-**Pattern:** Authority + Discover — the text search was a false negative; the call path
-was the real evidence.
-
-**Scoping:** out of scope for this ticket. MFIN-2088's acceptance criteria are about
-what `calculateFee(amount, "RTP")` returns, nothing about the refund path. And unlike
-most findings in this repo, no ticket tracks this one — which is not a reason to fix it
-here. Record it, raise a ticket, leave the change alone. Stage 4's `do_not_change`
-discipline applies to debt discovered mid-task, not just debt somebody already filed.
+```bash
+./scripts/ctx.sh evidence add --claim "calculateFee is invoked on a production payment path" --status rejected --mechanism "javap -c call-site scan" --source "target/classes" --observed "0 production call sites"
+./scripts/ctx.sh unknown add --question "Should calculateFee be wired into the payment path? (outside MFIN-2088)"
+```
 
 ### 7.2 — Build Your Own Context-Optimization Tool (~25 min)
 
@@ -1411,7 +1194,7 @@ actually fits before you're done:
 | What you built | Lives as | Why |
 |---|---|---|
 | Answers a question, same command every time, stable output shape | **Skill** (`.github/skills/`) | What you almost certainly just built — matches this lab's own pattern exactly |
-| No command underneath, just a consistent formatting/reasoning ask | **Prompt file** (`.github/prompts/`) | No tool to wrap — like Stage 3's `/promote-facts` |
+| No command underneath, just a consistent formatting/reasoning ask | **Prompt file** (`.github/prompts/`) | No tool to wrap — like `/context-kit` in Step 6 |
 | Must automatically block or allow an action, not just answer when asked | **Hook** (`.github/hooks/`) | The only primitive that can deny — see `loop-bound.sh` from Stage 5.4 |
 | Must hold on every future change, independent of whether Copilot is even open | CI gate | Outside the harness entirely — the backstop when nobody's in a chat |
 | Genuinely one-off, won't recur | Disposable — don't save it | Building infrastructure for a question you'll never ask twice is waste |
@@ -1534,10 +1317,10 @@ See `docs/TROUBLESHOOTING.md` for the full appendix. Quick pointers:
 |---|---|
 | `./scripts/*.sh` says "not recognized as an internal or external command" | Your VS Code integrated terminal is on PowerShell, not Git Bash — see [Windows setup](#windows-setup--read-this-before-stage-1) |
 | Agents don't appear in the mode dropdown | Confirm you opened `context-engineering-part-2/` itself as the VS Code workspace root, not a parent folder |
-| `context-for.sh` says "nothing has been promoted yet" | Run Stage 3.1 first — copy the **template**, not the example, and fill it in |
-| `verify-change.sh` shows all four checks green before Stage 4 | Not expected — at clean baseline, `calculateFee(..., "RTP")` returns `0`, which fails check 4 (`0 < 2.00`) by design. If you see all-green with no RTP code, your working tree has drifted from baseline — run `git status` and `git log` |
+| `ctx.sh` or `context-for.sh` says "no .context/context-register.yaml" | Run `./scripts/ctx.sh init` (Stage 1.4) first |
+| `verify-change.sh` fails "pricing authority recorded" or "change inside declared scope" | No decision recorded yet (Stage 4.5), no `HANDOFF.md`, or no `.workflow/baseline` — run `./scripts/lab-start.sh` and complete Stage 4.5 |
 | `jshell` not found | It ships with JDK 17+; check `java -version` and that `jshell` is on `PATH` |
-| Stage 5's loop reaches thrashing (exit 4) on the very next check | Expected — running `loop.sh check` twice with no code change in between produces an identical verdict hash by design. Make the fix before the second run if you want to see exit 0 instead |
+| `loop.sh check` prints REDUNDANT RETRY (exit 6) | Nothing under `src/` changed since the last attempt, so re-running cannot change the result. Make a change first |
 
 ---
 

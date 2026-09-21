@@ -36,7 +36,10 @@ if [ "$SUBCOMMAND" = "test" ]; then
   RAW="$(mktemp)"
   trap 'rm -f "$RAW"' EXIT
 
-  mvn -B test >"$RAW" 2>&1
+  # TEST_CMD lets you point the reducer at a source command that genuinely fails, to watch it
+  # fail closed without editing any code, e.g.  TEST_CMD="mvn -B no-such-phase" ./scripts/context-run.sh test
+  TEST_CMD="${TEST_CMD:-mvn -B test}"
+  $TEST_CMD >"$RAW" 2>&1
   MVN_RC=$?
   RAW_LINES="$(wc -l < "$RAW" | tr -d ' ')"
 
@@ -54,16 +57,16 @@ if [ "$SUBCOMMAND" = "test" ]; then
 
   # R1 — make Maven exit code authoritative; prevent stale-report false-green.
   #
-  # Three early-exit guards, in order of severity:
+  # Four early-exit guards, in order of severity:
   #
   # (a) Maven failed AND stale reports are on disk.
   #     The reports we just parsed belong to a prior successful run; reading
   #     them would produce a false PASS.  Bail out immediately.
   if [ "$MVN_RC" -ne 0 ] && [ "$HAVE_REPORTS" -eq 1 ]; then
     echo "TEST SUMMARY"
-    echo "BUILD FAILED — mvn -B test exited ${MVN_RC} (stale surefire reports on disk ignored)"
+    echo "BUILD FAILED — ${TEST_CMD} exited ${MVN_RC} (stale surefire reports on disk ignored)"
     echo ""
-    echo "last 20 lines of \`mvn -B test\` output:"
+    echo "last 20 lines of \`${TEST_CMD}\` output:"
     tail -20 "$RAW" | sed 's/^/  /'
     echo ""
     echo "NOISE REMOVED: n/a — build failed, stale reports not used"
@@ -74,9 +77,9 @@ if [ "$SUBCOMMAND" = "test" ]; then
   #     Build or compile error before surefire even ran — also a hard failure.
   if [ "$MVN_RC" -ne 0 ] && [ "$HAVE_REPORTS" -eq 0 ]; then
     echo "TEST SUMMARY"
-    echo "BUILD FAILED — mvn -B test exited ${MVN_RC} before producing any surefire report"
+    echo "BUILD FAILED — ${TEST_CMD} exited ${MVN_RC} before producing any surefire report"
     echo ""
-    echo "last 20 lines of \`mvn -B test\` output:"
+    echo "last 20 lines of \`${TEST_CMD}\` output:"
     tail -20 "$RAW" | sed 's/^/  /'
     echo ""
     echo "NOISE REMOVED: n/a — build did not complete, nothing to compress"

@@ -1,14 +1,11 @@
-# JIRA Tickets — Context Lifecycle Lab
+# JIRA Tickets — Meridian payments-core
 
-"MFIN" is the Jira project key for **Meridian Financial**, this lab's fictional payments
-platform. This file is the single ticket this lab runs on.
-
-This lab ships no answer key. Every claim below is something you can verify yourself with
-the scripts in `scripts/` — that is deliberate.
+> *Scenario note:* "MFIN" is the Jira project key for **Meridian Financial**, a fictional
+> payments platform used for this exercise. People and rates are fictional.
 
 ---
 
-## MFIN-2088 — Add US Real-Time Payment (RTP) fee support (Stage 0 entry — the lab ticket)
+## MFIN-2088 — Add US Real-Time Payment (RTP) fee support
 
 | Field | Value |
 |---|---|
@@ -16,7 +13,7 @@ the scripts in `scripts/` — that is deliberate.
 | **Type** | New Feature |
 | **Reporter** | Product — Payments (R. Fontaine) |
 | **Component** | payments-core |
-| **Labels** | rtp, fee-schedule, copilot-pilot |
+| **Labels** | rtp, fee-schedule |
 
 ### Description
 
@@ -24,36 +21,23 @@ Meridian is adding US Real-Time Payment (RTP) as a supported payment type for US
 accounts. `PaymentService.calculateFee()` currently handles `WIRE`, `ACH`, and `SWIFT`
 only — any other `paymentType` falls through to a zero fee, which is incorrect for RTP.
 
-Pricing/Product has already committed the target rate to `config/fee-schedule.yaml` ahead
-of engineering work starting. An earlier architecture discussion (`docs/adr/ADR-0007`)
-considered a different, simpler rate, but pricing changed during scoping.
+RTP pricing is owned by the Pricing Committee, and the pricing discussion moved during
+scoping. Confirm the approved pricing reference before implementing.
 
 ### Acceptance Criteria
 
-- [ ] `calculateFee(amount, "RTP")` returns 0.35% of `amount`
-- [ ] The computed fee is floored at a USD 2.00 minimum — an RTP transfer must never be
-      charged less than USD 2.00 in fees, however small the transfer
+- [ ] `calculateFee(amount, "RTP")` returns the fee defined by the approved RTP pricing
 - [ ] WIRE (0.25%), ACH ($0.25 flat), and SWIFT (0.5% + $15) are unchanged
 - [ ] No new call is added to `LegacyPaymentUtils`
-- [ ] Whichever source is authoritative for the RTP rate, it should be the one basis for
-      the implementation — if two sources disagree, that disagreement must be resolved
-      and recorded, not silently picked
+- [ ] The implementation traces to an approved pricing reference. If sources in the
+      repository disagree about RTP pricing, the disagreement is resolved by pricing
+      authority and recorded before implementation — not silently picked
 
-### Testing — Definition of Done (Stage 5 requirement)
+### Testing — Definition of Done
 
-- [ ] `./scripts/verify-change.sh` reports all four checks green
-- [ ] At least one test exercises an amount where 0.35% of the amount is *below* USD 2.00
-      (the minimum must bind there — this is the boundary condition most likely to be
-      implemented backwards)
-
-### Notes for reviewer
-
-The percentage-then-floor logic has exactly one boundary condition worth double-checking:
-whether the USD 2.00 minimum is compared against the *computed fee* or against the *raw
-transfer amount*. Those two comparisons agree for large transfers and disagree for
-everything below roughly USD 571 — so a wrong implementation can pass a casual read and a
-few by-hand spot checks on round numbers, and still be wrong for the exact transfers where
-the minimum was supposed to matter.
+- [ ] `./scripts/verify-change.sh` reports every check green
+- [ ] Permanent tests cover the approved RTP pricing rule, including any point where the
+      rule changes behavior
 
 ---
 

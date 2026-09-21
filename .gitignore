@@ -3,16 +3,34 @@ target/
 .DS_Store
 journey/
 
-# runtime state created live during the lab — regenerated per run, safe to delete
-.workflow/state.json
-.workflow/HANDOFF.md
+# runtime state created live during the lab — each participant's own engineering state.
+# Never commit it: it would hand the next participant a solved lab.
 .context/context-register.yaml
+.context/evidence-ledger.yaml
+.context/bundles/
 .context/context-map-*.md
-.context/test-gap-*.md
 .context/outline-*.md
 .context/context-run-*.md
+.workflow/baseline
+.workflow/HANDOFF.md
+.workflow/handoff-consumed
+.workflow/outcome.yaml
+.workflow/review-package.md
+.workflow/state.json
+.workflow/attempts.tsv
+.workflow/last-verdict.txt
+.workflow/fault-backup.*
+
+# approval records are retrieved at the Stage 4 human gate (scripts/request-approval.sh);
+# committing one would put the gate's answer in every clone
+docs/approvals/*
+!docs/approvals/README.md
+
+# local tool worktrees
+.kilo/
 
 # user-specific Claude Code config and orchestration artifacts
 .claude/
 .superpowers/
 dist/
+.context/test-gap-*.md

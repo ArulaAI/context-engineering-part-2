@@ -1,6 +1,6 @@
 ---
 name: context-map
-description: Produce a routing table for where truth lives on a keyword or feature (affected domains, symbols, contracts, config, ADRs, tests, dependency bounds, ticket) before retrieving anything. Use when starting an unfamiliar task, before searching or reading source. Returns a routing table, not an answer.
+description: Route before you retrieve. For a keyword, list the candidate context surfaces — task, implementation candidates, configuration, decision records, test surfaces, legacy or dependency signals, other docs — and the questions a map cannot settle. It tells you where to look, never what is true.
 context: fork
 disable-model-invocation: true
 ---
@@ -25,9 +25,8 @@ routing table is cheap on purpose so it isn't mistaken for the answer itself.
 
 ## Output contract
 
-Return only the script's markdown table, plus its one closing note if two categories
-disagree (e.g. configuration and an architecture decision both claim a rate), plus the
-final "Saved to .context/context-map-\<keyword\>.md" line. No prose introduction. No
+Return only the script's markdown table, its **Unresolved** section, and the final
+"Saved to .context/context-map-\<keyword\>.md" line. No prose introduction. No
 summary paragraph. No code.
 
 ## Rules
@@ -35,9 +34,9 @@ summary paragraph. No code.
 - **Never** treat the map as authoritative — it reports where sources exist, not which
   one is correct. Resolving a disagreement between sources is a separate step
   (`scripts/authority.sh`, or a human decision if no compiler check applies).
-- `config/fee-schedule.yaml` is where current fee rates live — check it rather than
-  relying on memory, a comment, or a document. `LegacyPaymentUtils` is retired; confirm
-  any claimed dependency on it with `scripts/authority.sh` rather than a text match.
+- Never state which source is correct, current, or authoritative, and never state that a
+  dependency is or is not real. The map's "Unresolved" section is where those questions
+  belong; evidence mechanisms and people with authority settle them.
 
 If you were invoked as a subagent, this table is the entire value you return — make
 every row carry something the caller cannot get without you.

@@ -45,10 +45,10 @@ STATUS="$(sed -n 's/.*"status": *"\([A-Z_]*\)".*/\1/p' "$STATE" | head -1)"
 
 case "$STATUS" in
   STOP_THRASHING)
-    deny '"The repair loop detected thrashing: the verifier returned an identical verdict twice, so edits are landing but the outcome is not moving. Another attempt spends tokens to learn nothing. Escalate to a human with the last verdict, or run ./scripts/loop.sh reset to start a new bounded loop deliberately."'
+    deny '"The repair loop stopped on thrashing: the code changed twice in a row and the verifier failed in exactly the same way both times. Edits are not converging. Escalate to a human with .workflow/last-verdict.txt, or run ./scripts/loop.sh reset to start a new bounded loop deliberately."'
     ;;
   STOP_BUDGET)
-    deny '"The repair loop budget is exhausted (3 attempts). Steps 1-3 deliver nearly all the available gain; step 4+ adds under 2%. Escalate to a human, or run ./scripts/loop.sh reset if you are starting genuinely new work."'
+    deny '"The repair loop budget is exhausted. The budget was set before the loop started, so it is not yours to extend. Escalate to a human, or run ./scripts/loop.sh reset if you are starting genuinely new work."'
     ;;
 esac
 

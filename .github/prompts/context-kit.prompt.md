@@ -25,9 +25,15 @@ anything you could have answered by reading. Then confirm the gaps:
   than inventing one.)
 - **Where truth lives:** which directories hold committed config, architecture
   decisions, tickets, and tests? This is what the routing table categorizes by.
-- **The authority question:** is there a file in this repo that is authoritative for
-  business values (rates, limits, flags) the way `config/fee-schedule.yaml` is for
-  Meridian? If there isn't, that absence is itself worth reporting.
+- **The authority question:** which claims here can a tool settle, and which need an
+  organizational authority (pricing, legal, product)? Record where that authority lives —
+  often outside the repository. Never nominate a file as authoritative because it is
+  committed or looks current.
+
+The kit must keep three responsibilities separate:
+**Context Map = route** (where to look, what is unresolved) ·
+**Evidence = prove** (a mechanism settles one claim) ·
+**Register = persist verified state** (facts with evidence, decisions with authority).
 
 ## Step 2 — Generate, in this order
 
@@ -37,8 +43,11 @@ wraps. Match the frontmatter shape of the lab's existing skills exactly: `name`,
 one-line `Run:` workflow, and an output contract that says *return the digest only, no
 prose*.
 
-1. **`context-map`** — routing table for a keyword across this repo's actual
-   directories. Prints paths, hit counts, and categories. Never file contents.
+1. **`context-map`** — a router, not an answer. For a keyword, list candidate context
+   surfaces (task, implementation candidates, config, decision records, tests,
+   legacy/dependency signals) plus the questions the map cannot settle. It must never say
+   which source is correct, current, authoritative or superseded, or whether a dependency
+   is real.
 2. **`context-run test`** — runs the real test command, parses this repo's own
    machine-readable report, prints pass/fail counts and a regression line. **Must fail
    closed**: distinguish "0 failures because everything passed" from "0 failures because
@@ -51,7 +60,7 @@ prose*.
 4. **`outline`** — structure of one file (signatures and line ranges), never contents.
 
 Stop there unless asked for more. Those four cover discover, reduce, and authority. The
-register (`context-for`) and the verifier (`verify-change`) are task-specific by nature —
+durable-state tool (the lab's `ctx.sh`) and the verifier (`verify-change`) are task-specific by nature —
 offer to generate them only if the person describes a specific recurring work unit or a
 specific non-negotiable acceptance criterion to encode.
 
