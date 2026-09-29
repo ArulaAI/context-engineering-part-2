@@ -20,7 +20,11 @@ git status --porcelain                # must be empty
 ```
 
 Also: close every Copilot chat from rehearsals, clear the terminal, and confirm the six agents
-appear in the agent dropdown. Total runtime at a talking pace is about 75 minutes; the guide's
+appear in the agent dropdown.
+
+**Timing.** The tight recording path is ~57 minutes — see `RUN_SHEET.md` for the per-stage clock
+and the three `FULL ONLY` segments it skips. This script carries the full narration, including
+those segments, so read past them if you are recording the tight path. The lab's own
 118-minute budget assumes a room full of people typing.
 
 ---
@@ -114,8 +118,17 @@ how to implement it.
 
 **SHOW.** It reports the clean scenario snapshot it built.
 
-**COPILOT.** New chat, default agent — no custom agent, no skills. Paste the prompt from guide
-step 0.2.
+**COPILOT.** In the new window: new chat, default agent — no custom agent, no skills. Paste
+verbatim:
+
+> Review MFIN-2088 using the engineering evidence in this workspace.
+>
+> Tell me:
+> - where you would implement the RTP change,
+> - what fee behavior should apply,
+> - and how you would approach the implementation.
+>
+> Do not modify files.
 
 **SAY while it answers.** Watch for a rate. Watch for confidence.
 
@@ -393,7 +406,15 @@ not a result, it is a coincidence.
 
 **SAY.** This stage is about walls. Two kinds, and they are not equally strong.
 
-**COPILOT.** New chat, select **RTP Investigator**, send guide step 4.1's prompt.
+**COPILOT.** New chat, select **RTP Investigator**. Paste verbatim, substituting the package
+output for the bracketed line:
+
+> Investigate MFIN-2088. Here is the context package:
+> [paste the output of ./scripts/ctx.sh package calculateFee-rtp]
+> Work from it — do not read PaymentService.java in full.
+>
+> For any claim a tool can settle, dispatch evidence-checker rather than reading files
+> yourself. Start with: does PaymentService depend on LegacyPaymentUtils?
 
 **SAY.** Watch what it does with the pricing question — it should dispatch `evidence-checker`
 rather than gathering the evidence itself. The subagent goes off, compiles things, reads files,
@@ -729,7 +750,17 @@ verification passed, what is still open, what happens next. Every one resolves t
 pricing conflict gets re-litigated.
 
 **COPILOT.** Brand-new chat. Attach only `.context/context-register.yaml`,
-`.workflow/HANDOFF.md`, `.workflow/outcome.yaml`. Ask the seven questions from guide step 6.2.
+`.workflow/HANDOFF.md`, `.workflow/outcome.yaml`. Ask:
+
+> Based only on these artifacts:
+>
+> 1. What was requested?
+> 2. What was verified?
+> 3. What human decision was made, by whom, on what authority?
+> 4. What was implemented, and where?
+> 5. What verification passed?
+> 6. What remains unresolved?
+> 7. What should happen next?
 
 **SAY.** No transcript, no history, three files. Then check its answers against the repository
 — `verify-change.sh` still passes, and `git log -1` shows the commit the outcome recorded.
