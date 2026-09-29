@@ -18,14 +18,18 @@ Java build chain — neither IDE owns it.
 | Stage | What you do | Works as written |
 |---|---|---|
 | All | Run `./scripts/*.sh` from IntelliJ's built-in terminal | Yes — open Terminal panel (`Alt+F12`) |
-| 0 | Attempt MFIN-2088 in plain Copilot chat | Yes — use Copilot Chat panel |
-| 1 | `context-map.sh RTP`, `authority.sh`, `grep`/`jdeps` commands | Yes |
+| 0 | `lab-start.sh --reset`, `stage0-baseline.sh`; attempt MFIN-2088 in plain Copilot chat | Yes — use Copilot Chat panel |
+| 1 | `context-map.sh`, `authority.sh`, `test-evidence.sh`, `outline.sh`, `ctx.sh init` / `evidence` | Yes |
 | 2 | `context-run.sh test`, `context-run.sh search`, `mvn test` | Yes |
-| 3 | Author `.context/context-register.yaml` from template; run `context-for.sh` | Yes |
-| 4 | Human resolves the rate conflict; edits ADR; updates register by hand | Yes |
-| 5 | `verify-change.sh`, `loop.sh`, `git apply fixtures/rtp-implementation.diff` | Yes |
-| 6 | `context-for.sh calculateFee-rtp`; fresh Copilot chat for rehydration | Yes |
-| 7 | Apply patterns without any lab scripts | Yes |
+| 3 | `ctx.sh promote` / `unknown add` / `constraint add` / `package`; `context-bundle.sh` | Yes |
+| 4 | `ctx.sh handoff` (refused), `request-approval.sh`, `ctx.sh decide`, `handoff-check.sh`, `apply-reference.sh` | Yes |
+| 5 | `review-package.sh`, `verify-change.sh`, `inject-fault.sh`, `loop.sh`, `ctx.sh outcome` | Yes |
+| 6 | `ctx.sh rehydrate-check`, `context-bundle.sh durable` / `cold`; fresh Copilot chat for rehydration | Yes |
+| 7 | `javap` reachability scan; build your own reducer | Yes |
+
+> Every durable artifact in this lab is written by `scripts/ctx.sh`, never by hand. There is
+> no register template to copy and no YAML to hand-author, so nothing in Stages 1, 3 or 4
+> depends on your IDE.
 
 > **Bottom line for most stages:** open the built-in terminal, run the script. The IDE
 > wrapper does not matter. The patterns — discover, authority, reduce, promote, package,
@@ -113,12 +117,12 @@ isolation manually — the evidence-gathering happened in a window that is not y
 investigation window, which is the whole property being taught. What you lose is the
 automation, not the lesson.
 
-**The comparison harness (Stages 3.3 and 6.3).** `Context Experiment` and
-`context-probe` have no IntelliJ equivalent either. Both stages document a manual version
-that produces the same comparison: two separate Copilot Chat panels, the same question in
-each, a different context in each. Run those. You are assembling the isolation by hand
-rather than having a harness do it, and the numbers you compare at the end are the same
-numbers.
+**The comparison harness (Stages 3.3 and 6.3).** `Context Experiment` and `context-probe`
+have no IntelliJ equivalent. Neither stage needs one. Both build their two windows as files
+first — `./scripts/context-bundle.sh broad` and `package` in 3.3, `durable` and `cold` in 6.3
+— so you can either paste each bundle into its own Copilot Chat panel, or skip the model
+entirely: Stage 6.3's graded step is a `grep` comparison of the two bundles in the terminal,
+and it gives the same answer on every machine.
 
 > **Note:** IntelliJ Copilot does not enforce tool lists at the extension level. The
 > learning objective — understanding why capability boundaries are structurally stronger
@@ -143,26 +147,35 @@ review instructions automatically.
 
 1. Open a **new Copilot Chat** panel (or close and reopen the panel). This clears session
    context — the same effect as a new VS Code chat.
-2. At the start of the new chat, paste the contents of
-   `.github/agents/rtp-reviewer.agent.md`'s description/rules section as your opening
-   message, followed by the evidence package:
+2. Build the package in the terminal — do not assemble it by hand:
 
-   ```
-   You are a fresh-context RTP reviewer. Your task: identify any deviation from the
-   ticket's acceptance criteria. Do not infer intent from comments — compute a concrete
-   example and check the number.
-
-   [Paste the output of: ./scripts/context-run.sh diff]
-   [Paste docs/JIRA_TICKETS.md's MFIN-2088 acceptance criteria]
-   [Paste config/fee-schedule.yaml]
+   ```bash
+   ./scripts/review-package.sh
+   grep -c "rtp_percent\|context-register\|HANDOFF" .workflow/review-package.md
    ```
 
-3. Proceed with Stage 5.1 as written.
+   The second command must print `0`. The package deliberately withholds
+   `config/fee-schedule.yaml`, your register and the handoff: a reviewer handed the config
+   would check the diff against the numbers the diff came from and always agree.
 
-The learning objective — fresh context as a check on borrowed reasoning — is identical.
-The difference is that in IntelliJ you assemble the reviewer's starting context manually
-rather than having the agent file provide it automatically. That manual assembly is itself
-a useful exercise in *what curated evidence looks like*.
+3. At the start of the new chat, paste this opening message, then the contents of
+   `.workflow/review-package.md`:
+
+   ```
+   You are a fresh-context RTP reviewer. Judge this change only from what follows.
+   Identify any deviation from the acceptance criteria or the approved decision. Do not
+   infer intent from comments — compute a concrete example and check the number.
+   ```
+
+4. Proceed with Stage 5.1 as written.
+
+The learning objective — fresh context as a check on borrowed reasoning — is identical. What
+you lose is the enforced `tools: []` isolation: in VS Code the reviewer *cannot* open the
+repository, whereas here it simply has not been given a reason to. Do not paste your register
+or your reasoning in, and the comparison holds.
+
+Either way, the reviewer's findings are one input. The verdict is `verify-change.sh`, which
+runs identically in both IDEs.
 
 ---
 
@@ -222,9 +235,13 @@ Same pattern as Context Map above. In IntelliJ, invoke the underlying script dir
 
 | Skill | Direct terminal equivalent |
 |---|---|
+| `/context-map` | `./scripts/context-map.sh <keyword>` |
+| `/authority` | `./scripts/authority.sh <Symbol> [file]` |
+| `/test-evidence` | `./scripts/test-evidence.sh <method> <token>` |
+| `/outline` | `./scripts/outline.sh <file>` |
 | `/context-run` | `./scripts/context-run.sh <subcommand>` |
+| `/context-package` | `./scripts/ctx.sh package <work-unit>` |
 | `/verify-change` | `./scripts/verify-change.sh` |
-| `/context-package` | `./scripts/context-for.sh <work-unit>` |
 
 ---
 
@@ -233,8 +250,12 @@ Same pattern as Context Map above. In IntelliJ, invoke the underlying script dir
 | Learning Objective | VS Code Mechanism | IntelliJ Approach | Fidelity |
 |---|---|---|---|
 | Context map | `/context-map` skill | `./scripts/context-map.sh` directly | Identical |
+| Claim-specific authority | `/authority`, `/test-evidence` skills | the scripts directly | Identical |
 | Compress test output | `/context-run` skill | `./scripts/context-run.sh` directly | Identical |
-| Promote & package | `/context-package` skill | `./scripts/context-for.sh` directly | Identical |
+| Promote & package | `/context-package` skill | `./scripts/ctx.sh package` directly | Identical |
+| Human approval gate | terminal | terminal | Identical — `request-approval.sh` + `ctx.sh decide` |
+| Handoff + proof of consumption | terminal | terminal | Identical — `ctx.sh handoff` + `handoff-check.sh` |
+| Durable vs cold rehydration | terminal | terminal | Identical — `rehydrate-check`, `context-bundle.sh` |
 | Capability boundary demo | Investigator agent (tool list enforced) | Manual system prompt + discussion exercise | Reduced — instruction boundary only, not capability boundary |
 | Fresh-context review | RTP Reviewer agent in new chat | New Copilot Chat panel + manual system prompt | Near-identical — manual assembly is itself instructive |
 | Bounded retry loop (automatic) | Hook fires `loop.sh` on Copilot task completion | Run `loop.sh` from terminal manually | Identical outcome; hook automation is skipped |
@@ -267,6 +288,7 @@ Before starting the lab:
 - [ ] Copilot Chat panel visible (`View → Tool Windows → GitHub Copilot`)
 - [ ] Terminal set to Git Bash on Windows (see Terminal Setup above)
 - [ ] From the terminal: `mvn clean test` → `BUILD SUCCESS`, `Tests run: 5, Failures: 0`
+- [ ] From the terminal: `./scripts/lab-start.sh --reset` → ends with `Ready.`
 - [ ] From the terminal: `./scripts/context-map.sh RTP` → prints routing table (not
       "command not found" or a Windows path error)
 

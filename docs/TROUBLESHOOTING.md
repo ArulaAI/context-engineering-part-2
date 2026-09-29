@@ -6,7 +6,7 @@ environments. Every fallback below still teaches the stage's lesson — none of 
 
 ---
 
-## Stage 4 — agents / isolation
+## Stages 3-4 — agents / isolation
 
 ### `Context Experiment` reports only one result, or refuses to run
 
@@ -15,15 +15,15 @@ environments. Every fallback below still teaches the stage's lesson — none of 
 
 **Fix:** confirm your message names both **Context A** and **Context B**. If it does and
 you still get one result, check whether `context-probe` appears in the mode dropdown. If
-it does not, run the comparison by hand in two separate chats, which Stage 3.3 documents
-in full under "The manual version." The isolation is then yours to perform rather than
+it does not, run the comparison by hand in two separate chats, which Stage 6.3 documents
+in full as the optional model-side comparison. The isolation is then yours to perform rather than
 the harness's, and the comparison is the same.
 
 ### Both probes return the same answer
 
 **Cause:** none. Agreement is a legitimate outcome.
 
-**Fix:** nothing. Stage 3.3's graded question is not whether the answers differ, it is
+**Fix:** nothing. Stage 6.3's graded question is not whether the answers differ, it is
 whether the crowded context gave you any way to *audit* its answer. Two matching answers
 still leave that question open, which is the point. Do not re-run hoping for a
 divergence.
@@ -74,24 +74,30 @@ built so both results teach; do not re-run it hoping for a particular one.
 
 ### The `CONTEXT CONFLICT` block never appears
 
-**Cause:** `docs/adr/ADR-0007-fee-schedule.md`'s `Status` field was already changed to
-`Superseded` in a prior run.
+**Cause:** the conflict is between two committed rates — `config/fee-schedule.yaml` (0.35%,
+USD 2.00 minimum) and `docs/adr/ADR-0007-fee-schedule.md` (0.30% flat). If a prior run edited
+either file, there is nothing left to conflict.
 
-**Fix:**
+**Fix:** confirm both rates are still as shipped, and restore them if not:
 ```bash
-git log --oneline -- docs/adr/ADR-0007-fee-schedule.md
-git checkout <commit-before-your-edit> -- docs/adr/ADR-0007-fee-schedule.md
+git checkout -- config/fee-schedule.yaml docs/adr/ADR-0007-fee-schedule.md
+grep -n "rtp_percent" config/fee-schedule.yaml
+grep -n "RTP rate" docs/adr/ADR-0007-fee-schedule.md
 ```
-Or simply re-open the file and change `**Status:** Superseded by config/fee-schedule.yaml`
-back to `**Status:** Proposed`, then re-commit.
+`./scripts/lab-start.sh --reset` performs that restore for you as part of starting a clean run.
 
-### `send: false` doesn't pause the handoff
+If both rates are correct and the agent still resolves the conflict silently, the terminal half
+of the stage stands on its own: `./scripts/ctx.sh handoff calculateFee-rtp --scope
+PaymentService.calculateFee --next "implement"` refuses with exit `4` while the pricing question
+is open, whatever any agent chose to say about it.
 
-**Cause:** the handoff auto-approval mechanism isn't enforced on this build.
+### Does the handoff gate depend on an agent behaving?
 
-**Fix:** Run the approval as a spoken gate: nobody proceeds to `rtp-implementer` until a
-person has read `.workflow/HANDOFF.md` aloud and said "approved." Same lesson, no
-dependency on the feature.
+**Cause:** a misreading of the design — it does not.
+
+**Fix:** nothing to fix. The gate is `ctx.sh`: a handoff cannot be generated while a blocking
+unknown is open, and `ctx.sh decide` will not record a decision whose `--authority` file does
+not exist. No agent cooperation is involved, on any build.
 
 ---
 
@@ -145,29 +151,29 @@ whenever `jdeps` was missing, instead of an error. If you're seeing an old captu
 that behavior anywhere, it predates the fix; the script now refuses to answer rather than
 guess.
 
-### `verify-change.sh` reports all four checks green with no RTP code implemented
+### `verify-change.sh` reports checks green with no RTP code implemented
 
-**Cause:** the working tree has drifted from the shipped baseline (a stray file, an
-already-applied fixture, or an already-fixed implementation left over from a prior dry
-run).
+**Cause:** the working tree has drifted from the shipped baseline — most often an
+implementation left in place by a previous run.
 
-**Fix:** `git status` and `git log --oneline -5` to see what's actually there.
-`git checkout -- src/main/java/com/meridian/payments/PaymentService.java` to restore the
-committed baseline if needed.
+**Fix:** `./scripts/lab-start.sh --reset`, which restores `src/`, `config/` and `docs/adr/`
+from the starting commit and clears every runtime artifact. To look before resetting:
+`git status` and `./scripts/apply-reference.sh status`.
 
 ---
 
-## Stage 5.3 — the bounded loop
+## Stage 5.4 — the bounded loop
 
-### `loop.sh check` always reports CONTINUE, never THRASHING
+### `loop.sh check` reports REDUNDANT RETRY (exit 6) where thrashing (exit 4) was expected
 
-**Cause:** you changed the code between checks — even a whitespace change alters the
-verdict text and its hash.
+**Cause:** nothing under `src/` changed between the two checks. `loop.sh` classifies that as
+redundant rather than thrashing, and does not count it as an attempt, because identical code
+cannot produce a different result.
 
-**Fix:** This is expected, not a bug — Stage 5.3's thrashing exercise specifically calls
-for running `check` twice with **no code change** in between. If you want to demonstrate
-budget exhaustion (exit 5) instead, you'd need each attempt to fail differently — harder
-to stage on demand, so the guide focuses on thrashing, which is reliably reproducible.
+**Fix:** this is the designed behaviour, and Stage 5.4 walks all four exits in order: `1`
+(continue), `6` (redundant, no code change), `1` again after a change that fixes nothing, then
+`4` (thrashing — the code changed and the verifier failed identically). Exit `5` is budget
+exhaustion, which needs each attempt to fail *differently*; the guide does not stage it.
 
 ### `loop.sh` state seems stuck / stale
 
@@ -195,24 +201,24 @@ at any time (`rm .workflow/state.json`).
 need to invoke them as `./scripts/<name>.sh` from the repo root (`context-engineering-part-2/`),
 not from inside `scripts/`.
 
-### `context-for.sh` says "nothing has been promoted yet"
+### `ctx.sh` or `context-for.sh` says there is no register
 
-**Cause:** `.context/context-register.yaml` doesn't exist — this is the honest answer
-before Stage 3.1.
+**Cause:** `.context/context-register.yaml` doesn't exist — the honest answer before
+Stage 1.4.
 
-**Fix:** `cp .context/context-register.template.yaml .context/context-register.yaml` and
-fill it in following `.context/README.md`'s required keys.
+**Fix:** `./scripts/ctx.sh init --objective "..." --work-item MFIN-2088`, exactly as Stage 1.4
+does. There is no template to copy: `ctx.sh` owns the file's shape, and every entry is written
+by a command that enforces its rules.
 
-### `context-for.sh` produces a garbled or empty package on a hand-edited register
+### The context package is garbled or empty after the register was hand-edited
 
-**Cause:** none of this lab's scripts use Python — `context-for.sh` parses
-`.context/context-register.yaml` with a plain `awk` state machine, deliberately, since
-this lab's audience is Java engineers who won't reliably have Python installed. That
-parser only understands the exact flat shape in
-`.context/context-register.template.yaml`: two levels of nesting, one scalar per line,
-and a multi-line block scalar only on `objective`'s `>`. A hand-edited register that
-drifts from that shape (wrong indentation under a folded block, a nested list, a value
-that spans multiple lines anywhere else) will silently misparse rather than error clearly.
+**Cause:** none of this lab's scripts use Python — the register is parsed with a plain `awk`
+state machine, deliberately, since this lab's audience is Java engineers who won't reliably
+have Python installed. That parser understands only the shape `ctx.sh` writes: two levels of
+nesting, one scalar per line, a folded block scalar only on `objective`. A register edited by
+hand can drift from that shape and will misparse rather than error clearly.
 
-**Fix:** diff your register against `.context/context-register.template.yaml`'s
-structure, not just its content, and fix indentation to match exactly.
+**Fix:** don't hand-edit it. Every field has a command: `evidence add`, `evidence capture`,
+`promote`, `unknown add`, `constraint add`, `decide`. If it is already damaged, run
+`./scripts/lab-start.sh --reset` and redo Stage 1.4 onward; `./scripts/ctx.sh check` confirms
+that a register is internally consistent.

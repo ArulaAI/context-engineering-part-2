@@ -39,6 +39,17 @@ if [ "$EXPECTED" != "$RECORDED" ]; then
   exit 3
 fi
 
+# A failed check must not erase a consumption that was already proven for THIS handoff.
+# Otherwise trying the negative case (an invented ID, on purpose) would silently retract
+# the real proof, and Stage 5's outcome would report handoff consumed: false.
+keep_or_clear() {
+  if [ -f "$CONSUMED" ] && [ "$(cat "$CONSUMED")" = "$RECORDED" ]; then
+    echo "An earlier return already proved consumption of $RECORDED; that record stands."
+  else
+    rm -f "$CONSUMED"
+  fi
+}
+
 if [ "${1:-}" = "-" ]; then RETURN="$(cat)"; else RETURN="${1:-}"; fi
 [ -n "$RETURN" ] || { echo "usage: handoff-check.sh \"<implementer return>\"" >&2; exit 3; }
 
@@ -47,13 +58,13 @@ QUOTED="$(printf '%s\n' "$RETURN" | grep -oE 'HANDOFF_ID:[[:space:]]*H-[0-9a-f]+
 if [ -z "$QUOTED" ]; then
   echo "NOT CONSUMED — the return quotes no HANDOFF_ID. There is no evidence the implementer"
   echo "read $HANDOFF."
-  rm -f "$CONSUMED"
+  keep_or_clear
   exit 1
 fi
 if [ "$QUOTED" != "$RECORDED" ]; then
   echo "NOT CONSUMED — the return quotes $QUOTED, but $HANDOFF is $RECORDED."
   echo "The implementer worked from a different (stale or invented) handoff."
-  rm -f "$CONSUMED"
+  keep_or_clear
   exit 1
 fi
 
