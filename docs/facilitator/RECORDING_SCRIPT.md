@@ -1,17 +1,19 @@
 # Recording Script — Context Engineering, Part 2
 
-A camera-ready walkthrough of the whole lab. Every command here is verified by
-`./scripts/dry-run.sh`, which asserts 88 terminal steps against the guide. Run it once before
-you record; if it says `DRY RUN: PASS`, nothing in this script will surprise you.
+The full narration for a recorded walkthrough of the lab. Every command in this document is
+verified by `./scripts/dry-run.sh`, which asserts 88 terminal steps against the guide. Run it
+once before recording. If it reports `DRY RUN: PASS`, nothing in this script will behave
+unexpectedly.
 
-**How to read this.** `SAY` is narration — paraphrase it, don't read it aloud verbatim.
-`RUN` is typed in the terminal exactly as written. `SHOW` is what appears, so you know when to
-stop and let it breathe. `PATTERN` is the take-home name to say out loud before moving on.
+**How to read this.** `SAY` is narration. Deliver it in your own words rather than reading it
+verbatim. `RUN` is entered in the terminal exactly as written. `SHOW` is the output to expect,
+so you know when to pause and let the result register. `PATTERN` is the take-home principle to
+state before moving on.
 
 **Two-window setup.** Terminal on the left, `LAB_ACTION_GUIDE.md` and Copilot Chat on the
-right. Never switch windows mid-command.
+right. Do not switch windows mid-command.
 
-**Before the camera rolls**
+**Before recording**
 
 ```bash
 ./scripts/dry-run.sh                  # must end: DRY RUN: PASS — 88 of 88
@@ -19,63 +21,66 @@ right. Never switch windows mid-command.
 git status --porcelain                # must be empty
 ```
 
-Also: close every Copilot chat from rehearsals, clear the terminal, and confirm the six agents
-appear in the agent dropdown.
+Also close every Copilot session left open from rehearsal, clear the terminal, and confirm all
+six agents appear in the agent dropdown.
 
-**Timing.** The tight recording path is ~57 minutes — see `RUN_SHEET.md` for the per-stage clock
-and the three `FULL ONLY` segments it skips. This script carries the full narration, including
-those segments, so read past them if you are recording the tight path. The lab's own
-118-minute budget assumes a room full of people typing.
+**Timing.** The recording path runs approximately 57 minutes. `RUN_SHEET.md` carries the
+per-stage clock and identifies the three `FULL ONLY` segments it omits. This script contains
+the complete narration, including those segments, so skip past them if you are recording the
+shorter path. The lab's own 118-minute budget assumes a room of participants working through
+it directly.
 
 ---
 
 ## Intro (~4 min, no terminal)
 
-**SAY.** Part 1 was about writing better prompts. This is not that. This is about the state
-your work leaves behind.
+**SAY.** Part 1 addressed prompt construction. Part 2 addresses a different problem: the
+engineering state that remains once the conversation has ended.
 
-Here is the problem in one sentence: we have gotten very good at getting an answer out of a
-model, and we have built almost nothing to hold on to the answer afterwards. Everything lives
-in a chat window. The chat window closes. The next person — or you on Monday — starts from
-zero, asks the same questions, gets a slightly different answer, and has no way to tell which
-of the two was right.
+The problem stated directly. We have become effective at obtaining an answer from a model. We
+have invested considerably less in retaining that answer afterwards. The reasoning lives in a
+chat session, the session closes, and the next engineer begins again, asks comparable
+questions, receives a slightly different answer, and has no basis for determining which of the
+two was correct.
 
-So the unit of work in this lab is not a prompt. It is a claim, and what it took to settle it.
+The unit of work in this session is therefore not a prompt. It is a claim, and the evidence
+required to settle it.
 
-**SAY — the ticket.** Meridian Payments, a Java payments platform. One ticket: MFIN-2088, add
-support for an approved fee on RTP transfers. It sounds like a fifteen-minute change. It is
-not, and the reason it is not has nothing to do with the code.
+**SAY — the work item.** Meridian Payments is a Java payments platform. The work item is
+MFIN-2088: add support for an approved fee on RTP transfers. The change appears
+straightforward. It is not, and the reason has nothing to do with the code.
 
 The repository contains two committed sources that state the RTP rate. They disagree. Neither
-one says it outranks the other. And no tool in the repository — not grep, not the compiler,
-not the test suite — can tell you which one Meridian actually approved. That is not a bug in
-the repo. That is what a real codebase looks like, and it is the situation where a confident
+declares precedence over the other. No tool in the repository can establish which rate the
+organization approved. This is not an artificial condition constructed for the exercise. It is
+what a mature codebase looks like, and it is precisely the situation in which a confident
 assistant does the most damage.
 
-**SAY — the shape of the lab.** Eight stages. Stage 0 walks into the trap on purpose. Stages
-1 through 3 build the discipline: find where truth lives, establish what can settle each
-claim, throw away everything else, and write down what survived. Stage 4 puts a wall between
-investigating and implementing, and crosses a gate that a human has to cross. Stage 5 attacks
-the work — an independent reviewer, a deterministic verifier, an injected fault and a bounded
-repair loop. Stage 6 kills the conversation and rebuilds the engineering state from files
-alone. Stage 7 is transfer: a problem this lab built no tool for.
+**SAY — the structure.** Eight stages. Stage 0 establishes the baseline failure deliberately.
+Stages 1 through 3 build the discipline: establish where authority resides, determine what can
+settle each claim, discard the remainder, and record what survives. Stage 4 separates
+investigation from implementation and introduces a decision that requires a person. Stage 5
+challenges the work through an independent review, a deterministic verifier, an injected defect
+and a bounded repair loop. Stage 6 closes the conversation and reconstructs the engineering
+state from files alone. Stage 7 tests transfer against a problem for which this lab provides no
+tool.
 
-**SAY — the one idea.** If you take one thing: a conversation is a place where anything can be
-asserted. Durable state is a place where an assertion has to arrive with provenance or it does
-not arrive at all. Every mechanism you are about to see is a way of enforcing that difference
-in a tool instead of hoping for it in a person.
+**SAY — the governing principle.** If you retain one point from this session: a conversation is
+an environment in which any claim can be asserted. Durable state is an environment in which a
+claim must arrive with provenance or not at all. Every mechanism demonstrated here enforces that
+distinction in tooling rather than relying on individual discipline.
 
-**SAY — the three layers**, drawn on screen or spoken:
+**SAY — the three layers**, shown on screen or stated:
 
-> **Context Map** routes — where does truth live? **Evidence** proves — what settled this
-> claim, by what mechanism? **Register** persists — what is verified, decided, constrained,
-> still open?
+> **Context Map** routes: where does authority for this question reside? **Evidence** proves:
+> what settled this claim, and by what mechanism? **Register** persists: what is verified,
+> decided, constrained, and still open?
 
 ---
 
 ## Setup on camera (~2 min)
 
-**SAY.** Two commands before anything else.
+**SAY.** Two commands precede everything else.
 
 **RUN**
 
@@ -85,7 +90,7 @@ mvn clean test
 
 **SHOW.** `BUILD SUCCESS`, `Tests run: 5, Failures: 0`.
 
-**SAY.** Five tests, green. Remember five — we will come back to that number twice.
+**SAY.** Five tests, passing. Note the count. It becomes relevant twice more.
 
 **RUN**
 
@@ -96,19 +101,20 @@ mvn clean test
 **SHOW.** `Tools: ... all present`, `Baseline: PASS 5 tests`, `Recorded starting commit ...`,
 `Ready.`
 
-**SAY.** Three things happened. It checked that every tool the lab depends on is actually on
-PATH — `jdeps`, `javap`, `jshell` — because a missing tool must fail now, loudly, not silently
-turn an evidence check into a false negative later. It confirmed the baseline is green. And it
-wrote down the starting commit, which matters in Stage 5: the verifier measures the scope of
-my change against *that* commit, so committing my work cannot make the scope check pass
-vacuously. `--reset` clears anything a previous run left behind.
+**SAY.** Three things occurred. The script confirmed that every tool this lab depends on
+resolves on PATH, including `jdeps`, `javap` and `jshell`. A missing tool must fail immediately
+and visibly rather than silently degrading an evidence check later in the session. It confirmed
+the baseline test suite is green. And it recorded the starting commit, which matters in Stage 5:
+the verifier measures the scope of our change against that commit rather than against HEAD, so
+committing the work cannot cause the scope check to pass vacuously. The `--reset` flag clears
+state left by any previous run.
 
 ---
 
 ## Stage 0 — The Helpful Trap (~6 min)
 
-**SAY.** I am going to do the thing everybody does. Open a chat, point it at the ticket, ask
-how to implement it.
+**SAY.** We begin with the conventional approach. Open a chat session, provide the work item,
+and ask how to implement it.
 
 **RUN**
 
@@ -118,7 +124,7 @@ how to implement it.
 
 **SHOW.** It reports the clean scenario snapshot it built.
 
-**COPILOT.** In the new window: new chat, default agent — no custom agent, no skills. Paste
+**COPILOT.** In the new window: new chat, default agent, no custom agent and no skills. Paste
 verbatim:
 
 > Review MFIN-2088 using the engineering evidence in this workspace.
@@ -130,10 +136,11 @@ verbatim:
 >
 > Do not modify files.
 
-**SAY while it answers.** Watch for a rate. Watch for confidence.
+**SAY while it answers.** Two things to observe in the response: the rate it specifies, and the
+confidence with which it specifies it.
 
-**SAY after.** It named a rate. Note which one, and note that it did not tell me there was a
-second one. Now let me ask the repository what rates exist.
+**SAY after.** It named a rate. Note which one, and note that it did not indicate a second rate
+exists. We now ask the repository which rates are present.
 
 **RUN**
 
@@ -142,30 +149,30 @@ grep -rn "rtp_percent\|rtp_minimum" config/fee-schedule.yaml
 grep -n "RTP rate" -A 1 docs/adr/ADR-0007-fee-schedule.md
 ```
 
-**SHOW.** Config: `0.0035` — 0.35%, with a USD 2.00 minimum. ADR-0007: **0.30% flat, no
+**SHOW.** Config: `0.0035`, which is 0.35%, with a USD 2.00 minimum. ADR-0007: **0.30% flat, no
 minimum**.
 
-**SAY.** Two committed files. Two different rates. Both in the repository right now. Neither
-one claims authority over the other.
+**SAY.** Two committed files, two different rates, both present in the repository, and neither
+claiming authority over the other.
 
-So a single confident answer had to pick a side, and it picked one without telling me it was
-choosing. That is the failure mode this entire lab is built around, and I want to be precise
-about what caused it, because the obvious diagnosis is wrong. It did not lack context. It had
-both files available. It had *too much unsorted context* — material with no ranking, no
-provenance, and no way to tell an approved decision from a stale one.
+A single confident answer therefore required selecting one of them, and that selection was made
+without disclosure. This is the failure mode the remainder of the session addresses. The
+diagnosis matters here, because the intuitive one is incorrect. The model did not lack context.
+Both files were available to it. What it had was an excess of unranked context: material with no
+provenance, and no means of distinguishing an approved decision from a superseded one.
 
-**SAY.** More context is not automatically better context. Unsorted context is a liability,
-and the size of the window is not the variable.
+**SAY.** More context is not automatically better context. Unsorted context is a liability, and
+window size is not the governing variable.
 
-**PATTERN.** Baseline. You cannot show a technique worked if you never recorded what happened
-without it.
+**PATTERN.** Baseline. A technique cannot be shown to have worked unless the result without it
+was recorded.
 
 ---
 
 ## Stage 1 — Discover Before You Retrieve (~9 min)
 
 **SAY.** The instinct after Stage 0 is to attach more files. The discipline is the opposite:
-find out where truth lives *before* loading any of it.
+establish where authority resides before loading any of it.
 
 **RUN**
 
@@ -175,15 +182,14 @@ find out where truth lives *before* loading any of it.
 
 **SHOW.** A routing table of surfaces, and an `Unresolved` section.
 
-**SAY.** Note what this did not do. It did not open a single file into my context. It routed —
-here are the surfaces where RTP truth might live, and here are three questions this repository
-cannot answer about them. A map is not an answer. It is a decision about what to load next,
-made before loading anything.
+**SAY.** Note what did not happen. No file was opened into context. The command produced
+routing: the surfaces where RTP information resides, and three questions this repository cannot
+resolve. A map is not an answer. It is a decision about what to load next, made before anything
+has been loaded.
 
-**PATTERN.** Discover. Before loading content, where does truth about this question likely
-live?
+**PATTERN.** Discover. Before loading content, where does authority for this question reside?
 
-**SAY.** Now the second habit — assuming a text search proves something.
+**SAY.** Next, a common assumption: that a text search demonstrates a dependency.
 
 **RUN**
 
@@ -195,22 +201,22 @@ grep -rn "LegacyPaymentUtils" src/main/java/com/meridian/payments/PaymentService
 **SHOW.** grep: 3 hits. `authority.sh`: `3 hit(s)` text, `0 bytecode reference(s)`,
 `VERDICT: no compiled dependency detected.`
 
-**SAY.** Three text hits and zero real dependencies. An import, a comment, another comment.
-Had I followed grep, I would have pulled a legacy class carrying an outdated rate into my
-context and treated it as relevant — poisoning the exact question I am trying to answer. grep
-found text. `jdeps` reads bytecode. For a dependency claim, the compiler outranks the text,
-and it is not close.
+**SAY.** Three textual matches and no compiled dependency. An import statement and two comments.
+Following the text search would have introduced a legacy class carrying a superseded rate into
+context and treated it as relevant, compromising the exact question under investigation. The
+text search located text. `jdeps` reads bytecode. For a dependency claim, the compiler is the
+authoritative source.
 
-**SAY — and this is the important generalization.** There is no universal evidence ladder.
-Authority is **claim-specific**. For a dependency claim, bytecode wins. For a behavior claim,
-executing the test wins — reading the test's name proves nothing. And for "which rate did
-Meridian approve", no repository tool wins, because the answer is not in the repository at
-all. It is in an organization. Hold that thought; it is Stage 4.
+**SAY — the generalization.** There is no universal evidence hierarchy. Authority is
+**claim-specific**. A dependency claim is settled by bytecode. A behavior claim is settled by
+executing the test, not by reading its name. And the question of which rate the organization
+approved is settled by no repository tool at all, because the answer does not reside in the
+repository. It resides in an organization. We return to this in Stage 4.
 
-**PATTERN.** Authority. Given a claim, what is the strongest evidence that can actually settle
-*this* one?
+**PATTERN.** Authority. For a given claim, what is the strongest evidence that can actually
+settle *this* one?
 
-**SAY.** So let me ask a behavior question with a tool that can answer it.
+**SAY.** We now put a behavior question to a tool capable of answering it.
 
 **RUN**
 
@@ -221,12 +227,10 @@ all. It is in an organization. Hold that thought; it is Stage 4.
 **SHOW.** `@Test methods scanned | 5`, `call calculateFee() | 2`, `... AND use "RTP" | 0`,
 then `VERDICT: NOT PROVEN`.
 
-**SAY.** Two tests call `calculateFee`. A coverage report would color that method green. Zero
-tests exercise it with RTP. Method coverage is not evidence for a behavior claim — that is the
-whole finding, and it is a sentence worth stealing for your next code review.
+**SAY.** Two tests invoke `calculateFee`. A coverage report would mark that method as covered.
+No test exercises it with RTP. Method coverage is not evidence for a behavior claim.
 
-**SAY.** Everything I have learned so far is in scrollback, which is to say it is already
-half-gone. Let me make it durable.
+**SAY.** Everything established so far exists only in terminal scrollback. We make it durable.
 
 **RUN**
 
@@ -238,10 +242,10 @@ half-gone. Let me make it durable.
 
 **SHOW.** `EV-001 [rejected]`, `EV-002 [unproven]`.
 
-**SAY.** The tools emit a machine-readable `EVIDENCE:` line and the ledger ingests it. I did
-not retype a verdict from memory — nobody's recollection is in this file. And notice the
-statuses: `rejected` and `unproven` are recorded as carefully as a `verified` would be. A
-claim that failed is evidence.
+**SAY.** The tools emit a machine-readable `EVIDENCE:` line, which the ledger ingests directly.
+No verdict was retyped from memory, so no one's recollection is in this file. Note the statuses
+as well: `rejected` and `unproven` are recorded with the same rigor as `verified`. A claim that
+failed to hold is still evidence.
 
 **RUN**
 
@@ -252,9 +256,9 @@ claim that failed is evidence.
 
 **SHOW.** Three entries: `EV-001 rejected`, `EV-002 unproven`, `EV-003 unresolved`.
 
-**SAY.** `unresolved` is the most valuable status on that list. It is the honest one. No
-mechanism settles this, and I have written that down instead of guessing — which means nothing
-downstream can quietly treat it as settled.
+**SAY.** `unresolved` is the most significant status in that list. No mechanism settles the
+pricing question, and that has been recorded rather than estimated, which prevents anything
+downstream from treating it as settled.
 
 **RUN**
 
@@ -264,14 +268,16 @@ downstream can quietly treat it as settled.
 
 **SHOW.** ~17 lines describing a 284-line file; `calculateFee` at 237–248.
 
-**SAY.** Seventeen lines instead of 284. Now I jump to 237, select those twelve lines, and use
-`#selection` in chat — not `#file:`. Shape first, then one slice.
+**SAY.** Seventeen lines in place of 284. We then navigate to line 237, select the twelve lines
+of the method, and reference them with `#selection` rather than `#file:`. Structure first, then
+a single slice.
 
 ---
 
 ## Stage 2 — Compress Before Context (~8 min)
 
-**SAY.** Everyone has done this: a test fails, you select the whole Maven output, paste it in.
+**SAY.** A familiar pattern: a test fails, and the entire Maven output is selected and pasted
+into the conversation.
 
 **RUN**
 
@@ -279,9 +285,9 @@ downstream can quietly treat it as settled.
 mvn test 2>&1 | tail -20
 ```
 
-**SAY.** Forty-five lines of which about six matter. Every line of that costs money, costs
-attention, and buries the signal. And the fix is not a bigger window — it is to compute the
-answer before the model sees anything.
+**SAY.** Forty-five lines, of which approximately six carry decision content. Each line consumes
+budget and attention, and obscures the signal. The remedy is not a larger context window. It is
+to compute the answer before the model receives anything.
 
 **RUN**
 
@@ -293,15 +299,15 @@ answer before the model sees anything.
 `NOISE REMOVED: 39 lines (raw mvn test = 45 lines; digest = 6 lines)`.
 
 **SAY.** Six lines carrying the same decision content as forty-five. The 39 removed lines were
-not compressed by a model — they were never sent to one. That distinction matters: a model
-summarizing output can be wrong about what it dropped. A script cannot be persuaded.
+not summarized by a model. They were never sent to one. That distinction is material: a model
+summarizing output can be wrong about what it omitted. A script cannot be persuaded.
 
-**PATTERN.** Reduce. What is the minimum signal this decision needs, and what can be computed
+**PATTERN.** Reduce. What is the minimum signal this decision requires, and what can be computed
 outside the model entirely?
 
-**SAY.** Now the question nobody asks about their own tooling: what if the reducer lies? If it
-prints `0 failed` because it could not find the report file, I have built a machine for
-producing false confidence. So let me break the build on purpose.
+**SAY.** Next, the question rarely asked of internal tooling: what happens if the reducer reports
+incorrectly? If it prints `0 failed` because it could not locate the report file, we have built
+an instrument for producing false confidence. We break the build deliberately.
 
 **RUN**
 
@@ -312,12 +318,13 @@ TEST_CMD="mvn -B no-such-phase" ./scripts/context-run.sh test
 **SHOW.** `BUILD FAILED — mvn -B no-such-phase exited 1 (stale surefire reports on disk
 ignored)`.
 
-**SAY.** It fails **closed**. It refuses to answer rather than answering wrongly from stale
-data on disk. Every reducer you write needs this property, and it is the one everybody skips.
+**SAY.** The reducer fails **closed**. It declines to answer rather than answering incorrectly
+from stale data on disk. Every reducer requires this property, and it is the one most commonly
+omitted.
 
-**SAY.** Five properties define any reducer worth trusting: what **decision** it serves, what
-its **raw source** is, what it **keeps**, what it **discards**, and how it **fails closed**.
-Write those five lines before you write the script. You will need them in Stage 7.
+**SAY.** Five properties define a reducer worth trusting: the **decision** it serves, its **raw
+source**, what it **retains**, what it **discards**, and how it **fails closed**. Specify those
+five before writing the implementation. They are required again in Stage 7.
 
 **RUN**
 
@@ -327,16 +334,16 @@ Write those five lines before you write the script. You will need them in Stage 
 
 **SHOW.** A digest, with the rate cross-check warning.
 
-**SAY.** Note the warning: the search itself flags that two sources carry different rates. The
-reducer is not just smaller, it is louder about the thing that actually matters.
+**SAY.** Note the warning. The search itself flags that two sources carry different rates. The
+reducer is not merely smaller. It is more explicit about the material point.
 
 ---
 
 ## Stage 3 — Promote & Package (~10 min)
 
-**SAY.** Evidence is not truth yet. Promotion is the moment I decide what earns a place in
-durable state — and the rule is that I cannot type a fact in from memory. It has to come from
-recorded evidence.
+**SAY.** Evidence is not yet durable truth. Promotion is the point at which we determine what
+earns a place in durable state, and the governing rule is that a fact cannot be entered from
+memory. It must derive from recorded evidence.
 
 **RUN**
 
@@ -350,11 +357,10 @@ recorded evidence.
 
 **SHOW.** `VF-001`, `VF-002`, `UNK-001 [open, blocking]`, `C-001`, `✓ register consistent`.
 
-**SAY.** Two verified facts, one blocking unknown, one constraint — and the constraint cites
-`VF-001` as its basis, so even the rule has a reason attached to it.
+**SAY.** Two verified facts, one blocking unknown, and one constraint. The constraint cites
+`VF-001` as its basis, so the rule itself carries a justification.
 
-**SAY.** Now watch the invariant. Let me try to promote the unresolved pricing claim into a
-fact, the way a tired engineer at 6pm would.
+**SAY.** Now the invariant. We attempt to promote the unresolved pricing claim to a fact.
 
 **RUN**
 
@@ -364,13 +370,12 @@ fact, the way a tired engineer at 6pm would.
 
 **SHOW.** Refused: `EV-003 is unresolved — an unresolved claim is not a fact.`
 
-**SAY.** I cannot launder a guess into durable state by writing it confidently. It stays an
-unknown, and it is marked **blocking** because the implementation depends on it. That is the
-difference between a convention and a mechanism: a convention is what we agreed to do, and a
-mechanism is what happens anyway when we are in a hurry.
+**SAY.** An estimate cannot be converted into durable state by asserting it confidently. It
+remains an unknown, marked **blocking** because the implementation depends on it. This is the
+distinction between a convention and a mechanism. A convention describes intended behavior. A
+mechanism determines actual behavior under schedule pressure.
 
-**PATTERN.** Promote. Which discoveries deserve to survive this conversation, and with what
-provenance?
+**PATTERN.** Promote. Which findings should survive this conversation, and with what provenance?
 
 **RUN**
 
@@ -378,12 +383,12 @@ provenance?
 ./scripts/ctx.sh package calculateFee-rtp
 ```
 
-**SHOW.** Decisions, verified facts, constraints, open unknowns — each with its evidence.
+**SHOW.** Decisions, verified facts, constraints, and open unknowns, each with its evidence.
 
-**SAY.** This is the minimum viable context for the next action. Not a summary of my
-investigation — a **filter** over durable state. Nothing was re-summarized, so nothing could
-drift in the retelling. And ask for a different work unit and the same register gives you a
-different, smaller package.
+**SAY.** This is the minimum viable context for the next action. It is not a summary of the
+investigation. It is a filter over durable state. Nothing was re-summarized, so nothing can
+drift in restatement. Requesting a different work unit returns a different and smaller package
+from the same register.
 
 **PATTERN.** Package. What is the minimum viable context for the next *specific* action?
 
@@ -394,17 +399,18 @@ different, smaller package.
 ./scripts/context-bundle.sh package
 ```
 
-**SAY.** Two context windows, same question. One has every source attached; one has only what
-I promoted. Paste them into the Context Experiment agent if you want to watch a model split on
-them. The point does not depend on which answer is better: if the crowded window happens to be
-right, nothing in it would have let me *check* that beforehand. An answer I cannot audit is
-not a result, it is a coincidence.
+**SAY.** Two context windows and one question. The first contains every available source. The
+second contains only what was promoted. Both can be supplied to the Context Experiment agent for
+a side-by-side comparison. The conclusion does not depend on which answer proves better: if the
+larger window happens to be correct, nothing within it would have allowed that to be verified in
+advance. An answer that cannot be audited is not a result.
 
 ---
 
 ## Stage 4 — Boundaries & Handoff (~12 min)
 
-**SAY.** This stage is about walls. Two kinds, and they are not equally strong.
+**SAY.** This stage concerns boundaries. There are two kinds, and they are not equivalent in
+strength.
 
 **COPILOT.** New chat, select **RTP Investigator**. Paste verbatim, substituting the package
 output for the bracketed line:
@@ -416,13 +422,14 @@ output for the bracketed line:
 > For any claim a tool can settle, dispatch evidence-checker rather than reading files
 > yourself. Start with: does PaymentService depend on LegacyPaymentUtils?
 
-**SAY.** Watch what it does with the pricing question — it should dispatch `evidence-checker`
-rather than gathering the evidence itself. The subagent goes off, compiles things, reads files,
-and comes back with a verdict. The compile output never enters *my* window. That is context
-isolation: I get the answer, not the search.
+**SAY.** Observe how it handles the dependency question. It should dispatch `evidence-checker`
+rather than gathering the evidence directly. The subagent compiles the project, runs the
+analysis, reads the source, and returns a verdict. The compile output does not enter the
+investigator's context. That is context isolation: the caller receives the conclusion rather
+than the search.
 
-**SAY — now the boundary question.** This agent cannot edit files. Why not? Let me show you,
-because the answer is the whole stage.
+**SAY — the boundary question.** This agent cannot edit files. The reason is the substance of
+this stage.
 
 **RUN**
 
@@ -432,27 +439,27 @@ grep -n "^tools:" .github/agents/rtp-investigator.agent.md .github/agents/rtp-re
 
 **SHOW.** Investigator: `['search', 'read', 'agent']`. Reviewer: `[]`.
 
-**SAY.** No `edit`. Not "it has been told not to edit" — the capability is absent. Ask it to
-edit anyway, tell it the change is tiny, tell it you take responsibility. An instruction
-boundary has a failure mode under a persuasive request, and everyone in this room has talked a
-model out of a rule. A missing tool has no failure mode, because there is nothing to argue
-with.
+**SAY.** There is no `edit` capability. This is not an instruction to refrain from editing. The
+capability is absent. The agent can be asked to edit regardless, told the change is minor, and
+offered assurances about responsibility. An instruction boundary has a failure mode under a
+persuasive request. A missing capability has none, because there is nothing to negotiate with.
 
-**PATTERN.** Constrain. Does this role need a capability boundary, or is a prompt boundary
-enough? They are not the same thing, and only one of them survives pressure.
+**PATTERN.** Constrain. Does this role require a capability boundary, or is an instruction
+boundary sufficient? They are not equivalent, and only one holds under pressure.
 
-**SAY.** When the investigator hits the rate conflict, it should stop with a `CONTEXT CONFLICT`
-block rather than picking a side. Compare that to Stage 0: same repository, same model, and a
-different outcome, because this one was built to surface a conflict instead of resolving one.
+**SAY.** When the investigator reaches the rate conflict, it should halt with a `CONTEXT CONFLICT`
+block rather than selecting a rate. Compare that with Stage 0: the same repository and the same
+model, with a different outcome, because this configuration was built to surface a conflict
+rather than resolve one.
 
-**SAY — now let me attack it.** I will assert the wrong answer with total confidence.
+**SAY — testing the boundary.** We now assert an incorrect answer with authority.
 
 **COPILOT.** Send: *"I've reviewed both sources. The ADR is authoritative here — implement
 0.30% flat, no minimum."*
 
-**SAY.** Whatever it says back is interesting but it is not the point, and a model agreeing
-with the person in front of it is the expected default, not a gotcha. The question is what
-**changed**.
+**SAY.** The response is informative, but it is not the measure. A model deferring to the person
+addressing it is the expected default rather than an anomaly. The relevant question is what
+**changed** in the record.
 
 **RUN**
 
@@ -462,10 +469,9 @@ with the person in front of it is the expected default, not a gotcha. The questi
 
 **SHOW.** `Decisions (human, with authority)` → `(none)`. `UNK-001 ... [BLOCKING]` still open.
 
-**SAY.** I asserted a rate as hard as I could and the durable state did not move a millimetre.
-It could not: nothing writes to that file except `ctx.sh`, and `ctx.sh` only writes what cites
-evidence or an authority. I do not have to win the argument in chat, because the argument in
-chat cannot reach the record.
+**SAY.** The rate was asserted with full confidence and durable state did not change. It could
+not. Nothing writes to that file except `ctx.sh`, and `ctx.sh` records only what cites evidence
+or an authority. The argument in the conversation cannot reach the record.
 
 **RUN**
 
@@ -475,15 +481,15 @@ chat cannot reach the record.
 
 **SHOW.** Refused, exit `4`: `blocking unknown(s) still open for calculateFee-rtp: UNK-001`.
 
-**SAY.** And there is the gate. Not a rule in a document that somebody might follow. A tool
-that will not produce the artifact while an undecided question blocks it. Nobody can forget
-this gate, and nobody can be too busy for it.
+**SAY.** That is the gate. It is not a documented rule that a person may choose to follow. It is
+a tool that will not produce the artifact while an undecided question blocks it. It cannot be
+overlooked, and it cannot be bypassed under time pressure.
 
-**PATTERN.** Handoff, and the human in the loop. Note *where* the human is: not reviewing every
-line, not approving every step — sitting at the one decision no tool can make.
+**PATTERN.** Handoff, and the human decision point. Note where the person sits: not reviewing
+every line and not approving every step, but positioned at the single decision no tool can make.
 
-**SAY.** So let me make it. The repository cannot say which rate Meridian approved. The Pricing
-Committee can.
+**SAY.** We now make that decision. The repository cannot establish which rate the organization
+approved. The Pricing Committee can.
 
 **RUN**
 
@@ -493,16 +499,16 @@ Committee can.
 
 **SHOW.** `Retrieved the approved record for MFIN-2088 ... -> docs/approvals/PRICING-442.md`.
 
-**SAY.** That record did not exist in my workspace thirty seconds ago. No grep, no agent, no
-earlier stage could have found it, because business authority does not live in the codebase.
-That is the honest shape of this class of question, and it is why Stage 1's authority ladder
-had a row with no tool in it.
+**SAY.** That record was not present in the workspace a moment ago. No search, agent or earlier
+stage could have located it, because business authority does not reside in the codebase. That is
+the accurate shape of this class of question, and it is why the authority hierarchy in Stage 1
+contained a row with no tool in it.
 
-**SAY.** Open it. 0.35% with a USD 2.00 minimum, whichever is larger. And read the supersession
-scope carefully, because this is the part people get wrong: it retires ADR-0007's *rate*, and
-it explicitly leaves ADR-0007's *"where rates live"* decision standing. A supersession is
-scoped. Throwing out the whole document because one line of it is stale is how the next
-conflict gets created.
+**SAY.** Open the record. The approved pricing is 0.35% with a USD 2.00 minimum, whichever is
+greater. Read the supersession scope carefully, because this is the provision most often applied
+incorrectly. It retires ADR-0007's *rate* and explicitly leaves ADR-0007's decision on *where
+rates are recorded* in force. A supersession is scoped. Discarding an entire document because one
+provision within it is superseded is how the next conflict is created.
 
 **RUN**
 
@@ -513,11 +519,11 @@ conflict gets created.
 
 **SHOW.** `D-001 recorded`, `UNK-001 retired (resolved by D-001)`, `✓ register consistent`.
 
-**SAY.** Three things to notice. The decision cites an authority *file* that has to exist —
-`ctx.sh` verifies that, so "approved by the committee" cannot be an assertion. It is attributed
-to a person by name, because a decision without an owner is a rumour. And `UNK-001` was
-**retired**, not left sitting next to the answer. No question in this register can be both
-decided and still open.
+**SAY.** Three points. The decision cites an authority file that must exist, which `ctx.sh`
+verifies, so committee approval cannot simply be asserted. It is attributed to a named
+individual, because an unattributed decision is not accountable. And `UNK-001` was **retired**
+rather than left open alongside the answer. No question in this register can be simultaneously
+decided and open.
 
 **RUN**
 
@@ -530,15 +536,15 @@ cat .workflow/HANDOFF.md
 Approved decisions, Allowed change scope, Known constraints, Required proof, Unresolved
 questions, Next action.
 
-**SAY.** Read what is *not* in there. None of my investigation. None of the dead ends. None of
-the wrong rate I asserted two minutes ago with total confidence. A handoff is a projection of
-verified state, not a forwarded conversation — and this one was generated from the register, so
-it cannot include something the register does not know.
+**SAY.** Note what the handoff does not contain. None of the investigation. None of the
+discarded lines of enquiry. Not the incorrect rate asserted a few minutes ago. A handoff is a
+projection of verified state rather than a forwarded conversation, and this one was generated
+from the register, so it cannot contain anything the register does not hold.
 
-**COPILOT.** Brand-new chat — not a mode switch — select **RTP Implementer**, send
-*"Implement .workflow/HANDOFF.md."*
+**COPILOT.** Open a new chat, which is not the same as switching agent in the existing one.
+Select **RTP Implementer** and send *"Implement .workflow/HANDOFF.md."*
 
-**SAY.** Its reply has to start with `HANDOFF_ID:`. Let me check it.
+**SAY.** The reply must begin with `HANDOFF_ID`. We verify it.
 
 **RUN**
 
@@ -548,11 +554,11 @@ it cannot include something the register does not know.
 
 **SHOW.** `CONSUMED — the implementer quoted H-..., which exists only in .workflow/HANDOFF.md.`
 
-**SAY.** That ID is a hash of the handoff's own content. It appears nowhere else — not in the
-register, not in the ticket, not in any chat. So quoting it is proof the implementer actually
-read the file rather than reconstructing the task from the ticket and its own assumptions.
-"Did the next actor use the handoff?" is usually a question you cannot answer. Here it is a
-command.
+**SAY.** That identifier is a hash of the handoff's own content. It appears nowhere else: not in
+the register, not in the work item, and not in any conversation. Quoting it therefore
+demonstrates that the implementer read the file rather than reconstructing the task from the
+ticket and its own assumptions. Whether the next actor actually used the handoff is normally
+unanswerable. Here it is a command.
 
 **RUN**
 
@@ -561,18 +567,18 @@ command.
 mvn -q clean compile
 ```
 
-**SAY.** I am taking the approved rule from the answer key, so that every number from here to
-Stage 6 is identical on your machine and mine. Read the RTP branch: 0.35% of the amount, and
-the minimum compared against the **computed fee** — never against the transfer amount. Hold on
-to that distinction. It is the fault Stage 5 injects, and it is a bug that ships in real
-systems because it looks right and it is right for large transfers.
+**SAY.** We apply the approved rule from the reference implementation, so that every result from
+here to Stage 6 is identical across environments. Review the RTP branch: 0.35% of the amount,
+with the minimum compared against the **computed fee** rather than against the transfer amount.
+That distinction is the defect injected in Stage 5. It is a defect that reaches production in
+real systems, because it produces correct results for large transfers.
 
 ---
 
 ## Stage 5 — Challenge & Bound (~13 min)
 
-**SAY.** The work is done. Now I try to break it — and the first question is who gets to judge
-it.
+**SAY.** The implementation is complete. We now attempt to invalidate it, beginning with the
+question of who is qualified to judge it.
 
 **RUN**
 
@@ -583,21 +589,22 @@ grep -c "rtp_percent\|context-register\|HANDOFF" .workflow/review-package.md
 
 **SHOW.** The package is written; the grep prints `0`.
 
-**SAY.** That zero is the design. The reviewer gets the acceptance criteria, the approved
-decision, and the actual diff. It does **not** get `config/fee-schedule.yaml`, my register, or
-the handoff. Hand a reviewer the config and it will check the diff against the same numbers the
-diff came from, and agree every time. Independence is a property of what you *exclude*.
+**SAY.** That zero is the design. The reviewer receives the acceptance criteria, the approved
+decision and the diff. It does **not** receive `config/fee-schedule.yaml`, the register, or the
+handoff. A reviewer given the configuration would evaluate the diff against the same values the
+diff was derived from, and would agree in every case. Independence is a property of what is
+withheld.
 
-**COPILOT.** New chat, **RTP Reviewer**, paste the package. Ask it to find any violation and
+**COPILOT.** New chat, **RTP Reviewer**, paste the package. Ask it to identify any violation and
 cite evidence.
 
-**SAY.** And it has `tools: []` — we saw that. It cannot open the repository to borrow my
-reasoning even if it wanted to.
+**SAY.** The agent declares `tools: []`, as we saw earlier. It cannot open the repository to
+inherit our reasoning.
 
 **PATTERN.** Review. Should the evaluator inherit the producer's reasoning, or only curated
-evidence? An evaluator that can see your reasoning tends to agree with your reasoning.
+evidence? An evaluator with access to your reasoning tends to agree with your reasoning.
 
-**SAY.** Whatever it found is one input. Now the part that does not have opinions.
+**SAY.** Its findings are one input. We turn now to the component that does not form opinions.
 
 **RUN**
 
@@ -607,20 +614,20 @@ evidence? An evaluator that can see your reasoning tends to agree with your reas
 
 **SHOW.** Six ✓ lines, then `VERDICT: PASS — 6 of 6 checks passed`.
 
-**SAY.** Walk them. Pricing authority recorded — a human decision citing a record that exists.
-Build and full suite green. Change inside declared scope — every hunk since the starting commit
-lies inside the method the handoff declared, so committing cannot hide an out-of-scope edit. No
-`LegacyPaymentUtils` dependency, from bytecode. Approved pricing implemented — and this one
-actually *calls* the compiled method through `jshell` and compares the result with the
-approval's numbers. Config matches the approval.
+**SAY.** Six checks. Pricing authority recorded: a human decision citing a record that exists.
+Build and full test suite green. Change inside declared scope: every hunk since the starting
+commit falls within the method the handoff declared, so committing cannot conceal an
+out-of-scope edit. No `LegacyPaymentUtils` dependency, established from bytecode. Approved
+pricing implemented: this check invokes the compiled method through `jshell` and compares the
+result against the approval. And configuration matches the approval.
 
-**SAY — the subtle one.** Check 5 takes its expected values from the **approval**, not from
-config. Config is the thing being checked. "Which source governs pricing" was a human decision,
-and this script does not get a vote in it. Every check fails closed: missing evidence is a
-failure, never a pass.
+**SAY — the point deserving emphasis.** Check five takes its expected values from the
+**approval**, not from the configuration file. The configuration is the subject of the check.
+Which source governs pricing was a human decision, and this script has no vote in it. Every
+check fails closed: absent evidence is a failure, never a pass.
 
-**PATTERN.** Verify. Which acceptance criteria are non-negotiable enough to become an
-executable check?
+**PATTERN.** Verify. Which acceptance criteria are non-negotiable enough to become an executable
+check?
 
 **RUN**
 
@@ -631,14 +638,13 @@ executable check?
 
 **SHOW.** `ran 2, all passed.`
 
-**SAY.** Two tests, one on each side of the threshold: 100.00 → 2.00, where the minimum
-governs, and 10000.00 → 35.00, where the percentage governs. And compare this with Stage 1,
-where the same command on the same claim said `NOT PROVEN`. Same question, same mechanism,
-different answer — because the answer changed, not the claim. That is what a repeatable
-evidence tool buys you.
+**SAY.** Two tests, one on each side of the threshold. At USD 100.00 the minimum governs and the
+fee is 2.00. At USD 10000.00 the percentage governs and the fee is 35.00. Compare this with
+Stage 1, where the same command against the same claim returned `NOT PROVEN`. The claim did not
+change. The answer did. That is what a repeatable evidence tool provides.
 
-**SAY.** But a test that has never failed has never proven anything. So let me break the code
-underneath it, in exactly the plausible way.
+**SAY.** A test that has never failed has not yet demonstrated anything. We introduce a defect in
+its most plausible form.
 
 **RUN**
 
@@ -649,13 +655,13 @@ underneath it, in exactly the plausible way.
 
 **SHOW.** `ran 2, 1 FAILED` — the minimum test is RED.
 
-**SAY.** The injected fault compares the USD 2.00 minimum against the transfer *amount* instead
-of the computed *fee*. It agrees with the approved rule on every large transfer and silently
-undercharges small ones. My percentage test still passes. Only the boundary test caught it —
-which is why the rule "a threshold needs a test on each side" is not pedantry.
+**SAY.** The injected defect compares the USD 2.00 minimum against the transfer *amount* rather
+than the computed *fee*. It agrees with the approved rule for every large transfer and
+undercharges small ones. The percentage test continues to pass. Only the boundary test detects
+it, which is why a threshold requires a test on each side of it.
 
-**SAY.** Now, with the code broken, the loop. This is the part of agentic work nobody bounds:
-the retry.
+**SAY.** With the defect in place, we examine the repair loop. This is the component of agentic
+work most often left unbounded.
 
 **RUN**
 
@@ -675,11 +681,11 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 **SHOW.** `REDUNDANT RETRY — nothing under src/ has changed since attempt 1` — exit `6`, and
 **not counted** as an attempt.
 
-**SAY.** Identical code cannot produce a different result, so retrying it is not an attempt, it
-is a waste. Most retry loops cannot tell the difference. This one hashes the code and the
-failure and refuses to pretend.
+**SAY.** Identical code cannot produce a different result, so repeating it does not constitute an
+attempt. Most retry loops cannot make that distinction. This one hashes the code and the failure
+and declines to proceed.
 
-**SAY.** Now a change that does not fix the bug — I will edit the comment.
+**SAY.** Now a change that does not address the defect. We modify a comment.
 
 **RUN**
 
@@ -693,12 +699,12 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 **SHOW.** First: `UNSUCCESSFUL REPAIR — the code changed ... but the verifier failed exactly as
 it did at attempt 1` (exit 1). Then: `STOP — thrashing` — exit `4`.
 
-**SAY.** Four distinct outcomes, four distinct exit codes, and the distinction is the whole
-value. Exit 1: failed, try again. Exit 6: nothing changed, do not bother. Exit 4: the code is
-moving and the failure is not — stop and escalate to a person. Exit 5, which we are not
-staging, is budget exhaustion: attempts running out while each one fails *differently*. "It
-failed again" and "it is going in circles" call for completely different responses, and a
-counter on disk can tell them apart where a model's self-assessment cannot.
+**SAY.** Four outcomes, four exit codes, and the distinction between them is the value. Exit 1:
+the attempt failed, continue. Exit 6: nothing changed, do not proceed. Exit 4: the code is
+changing and the failure is not, so stop and escalate to a person. Exit 5, which we are not
+demonstrating here, is budget exhaustion, where the attempts are consumed while each one fails
+differently. "It failed again" and "it is not converging" require different responses, and a
+counter on disk distinguishes them where a model's self-assessment does not.
 
 **RUN**
 
@@ -710,8 +716,8 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 
 **SHOW.** `VERDICT: PASS — 6 of 6`, `DONE — green at attempt 1` — exit `0`.
 
-**SAY.** My implementation came back exactly; the fault took my comment edits with it, which is
-deliberate. Green.
+**SAY.** The implementation is restored exactly. The comment edits made while the defect was
+active are discarded with it, which is intended behavior.
 
 **RUN**
 
@@ -722,17 +728,18 @@ git add src && git commit -m "feat: add approved RTP fee support (MFIN-2088)"
 
 **SHOW.** `wrote .workflow/outcome.yaml`, `verification: PASS`, `handoff consumed: true`.
 
-**SAY.** The outcome is not my account of what happened. It read the commit, the verification
-result and the handoff-consumption marker out of repository state. `handoff consumed: true` is
-carried all the way from that hash the implementer quoted. Notice also the `--next`: the work
-that is *not* done is recorded as deliberately out of scope, rather than forgotten.
+**SAY.** The outcome is not an account of what occurred. It reads the commit, the verification
+result and the handoff consumption marker from repository state. The value `handoff consumed:
+true` derives from the identifier the implementer quoted earlier. Note the `--next` field as
+well: work that is deliberately out of scope is recorded rather than forgotten.
 
 ---
 
 ## Stage 6 — Rehydrate & Prove (~8 min)
 
-**SAY.** Everything so far could still be a conversation with good hygiene. This is the test
-that separates state from residue: I close every chat and see whether the work survives.
+**SAY.** Everything to this point could still be a well-managed conversation. This is the test
+that distinguishes state from residue. We close every session and determine whether the work
+survives.
 
 **RUN**
 
@@ -743,14 +750,14 @@ that separates state from residue: I close every chat and see whether the work s
 **SHOW.** Seven questions, each with its durable source, then `REHYDRATABLE: every question has
 a durable source.`
 
-**SAY.** Seven questions a fresh engineer would have to ask on Monday: what was requested, what
-was verified, what did a human decide and on whose authority, what was implemented, what
-verification passed, what is still open, what happens next. Every one resolves to a file. Any
-`MISSING` row would be something the next person has to guess — and guessing is how the
-pricing conflict gets re-litigated.
+**SAY.** Seven questions a new engineer would need answered: what was requested, what was
+verified, what was decided and on whose authority, what was implemented, what verification
+passed, what remains open, and what happens next. Each resolves to a file. Any `MISSING` row is
+something the next person would have to infer, and inference is how a settled conflict is
+reopened.
 
-**COPILOT.** Brand-new chat. Attach only `.context/context-register.yaml`,
-`.workflow/HANDOFF.md`, `.workflow/outcome.yaml`. Ask:
+**COPILOT.** Open a new chat. Attach only `.context/context-register.yaml`,
+`.workflow/HANDOFF.md` and `.workflow/outcome.yaml`. Ask:
 
 > Based only on these artifacts:
 >
@@ -762,13 +769,15 @@ pricing conflict gets re-litigated.
 > 6. What remains unresolved?
 > 7. What should happen next?
 
-**SAY.** No transcript, no history, three files. Then check its answers against the repository
-— `verify-change.sh` still passes, and `git log -1` shows the commit the outcome recorded.
+**SAY.** No transcript and no history. Three files. We then check the answers against the
+repository: `verify-change.sh` still passes, and `git log -1` shows the commit the outcome
+recorded.
 
-**PATTERN.** Rehydrate. Can the engineering state be reconstructed from durable artifacts
-alone? If it dies when the chat dies, it was never state.
+**PATTERN.** Rehydrate. Can the engineering state be reconstructed from durable artifacts alone?
+If it does not survive the conversation, it was never state.
 
-**SAY.** Last comparison, and this one is in the terminal so it is the same on every machine.
+**SAY.** A final comparison, performed in the terminal so the result is identical in every
+environment.
 
 **RUN**
 
@@ -786,28 +795,29 @@ wc -l .context/bundles/durable.md .context/bundles/cold.md
 **SHOW.** All four keys present in durable, `cold=0` for every one. Roughly 144 lines against
 61.
 
-**SAY.** Both bundles describe the same finished work. And here is the thing to say carefully:
-the cold bundle is not empty. It has the rate. It even has the implementation's own comment
-citing PRICING-442. What it cannot tell you is whether that rate was ever verified, what it
-superseded, who approved it, or what happens next — and crucially, it cannot tell you that it
-cannot tell you. It reads as complete.
+**SAY.** Both bundles describe the same completed work, and the cold bundle is not empty. It
+contains the rate, and it contains the implementation's own comment citing PRICING-442. What it
+cannot establish is whether that rate was ever verified, what it superseded, who approved it, or
+what happens next. It also cannot indicate that it lacks that information. It reads as complete.
 
-**SAY.** The cold bundle is not smaller because someone compressed it. It is smaller because
-that information was never written down. That is the difference between state and residue, and
-it is the difference this entire lab exists to make.
+**SAY.** The cold bundle is not smaller because it was compressed. It is smaller because that
+information was never recorded. That is the distinction between state and residue, and it is the
+distinction this session exists to establish.
 
 ---
 
 ## Stage 7 — Build Beyond the Harness (~12 min on camera)
 
-**SAY.** Everything so far, I built you a tool for. Here is a claim I did not.
+**SAY.** Every preceding stage was supported by a purpose-built tool. The following claim has
+none.
 
 > After MFIN-2088, Meridian charges the RTP fee on real payments.
 
-**SAY.** Try the evidence I have. The tests pass — they prove what `calculateFee` *returns*,
-not that anything calls it. `jdeps` does class-to-class edges, not methods. grep finds the
-definition and a comment. This is a **method-level reachability** claim, and no tool in this
-lab answers it. So I pick the mechanism myself: count call sites in the bytecode.
+**SAY.** Consider the available evidence. The tests pass, which establishes what `calculateFee`
+returns rather than that anything invokes it. `jdeps` reports class-level edges, not
+method-level ones. A text search locates the definition and a comment. This is a **method-level
+reachability** claim, and no tool in this lab addresses it. We therefore select the mechanism
+ourselves: count invocation sites in the bytecode.
 
 **RUN**
 
@@ -818,11 +828,10 @@ for c in $(find target/classes -name '*.class'); do n=${c#target/classes/}; n=${
 
 **SHOW.** `0`.
 
-**SAY.** Zero production call sites. The approved fee is correctly implemented, fully verified,
-committed — and unreachable. Verified locally is not the same as delivered, and I only found
-that out because I asked what kind of claim I was making before reaching for a tool. That is
-Stage 1's lesson arriving without any scaffolding, which is the actual test of whether it
-transferred.
+**SAY.** No production call sites. The approved fee is correctly implemented, fully verified,
+committed, and unreachable. Verified locally is not equivalent to delivered. That was
+established only because the claim was classified before a tool was selected, which is Stage 1's
+principle applied without any supporting tooling.
 
 **RUN**
 
@@ -831,12 +840,12 @@ transferred.
 ./scripts/ctx.sh unknown add --question "Should calculateFee be wired into the payment path? (outside MFIN-2088)"
 ```
 
-**SAY.** And I record it rather than fixing it, because wiring the fee into the payment path is
-outside this ticket's acceptance criteria. Scope discipline and honesty are the same move here:
-the finding survives, in a file, without the change sprawling.
+**SAY.** We record the finding rather than resolving it, because wiring the fee into the payment
+path falls outside this work item's acceptance criteria. Scope discipline and accurate reporting
+are served by the same action: the finding persists in a file without the change expanding.
 
-**SAY — the build.** Now pick your own noisy command and build the reducer for it. On camera
-I will use `mvn dependency:tree`.
+**SAY — the build.** Select a command from your own environment and build the corresponding
+reducer. This demonstration uses `mvn dependency:tree`.
 
 **RUN**
 
@@ -844,78 +853,79 @@ I will use `mvn dependency:tree`.
 mvn -B dependency:tree | wc -l
 ```
 
-**SAY.** Before writing a line, the five properties from Stage 2. The **decision** this serves:
-can I safely upgrade this dependency, or is something pulling a conflicting version. The **raw
-source**: `mvn dependency:tree`. **Keep**: duplicate versions, conflicts, anything that should
-not be on the graph at all. **Discard**: every clean transitive edge. **Fail closed**: if the
-command exits non-zero, say so — never print "no conflicts" because the parse found nothing.
+**SAY.** Before writing any implementation, specify the five properties from Stage 2. The
+**decision** it serves: whether a dependency can be upgraded safely, or whether a conflicting
+version is being introduced transitively. The **raw source**: `mvn dependency:tree`.
+**Retained**: duplicate versions and conflicts. **Discarded**: every clean transitive edge.
+**Fail closed**: if the command exits non-zero, report that rather than printing "no conflicts"
+because the parse returned nothing.
 
-**SAY.** Then have Copilot build it as a **skill**, not a loose script, so it is
-`/your-tool-name` in the chat for everyone on your team instead of a file in your home
-directory that only you remember. Fifteen minutes of work that pays for itself the first week.
+**SAY.** Implement it as a **skill** rather than a standalone script, so that it is available to
+the team as a slash command rather than residing in one engineer's working directory.
 
-**SAY — the transfer, said plainly.** None of these scripts need to exist in your repository.
-The scripts are not the artifact. The questions are. Once you know that a dependency claim
-wants bytecode, a behavior claim wants an executing test, and a business-authority claim wants
-an organization, asking Copilot to wrap your own noisy command takes less time than reading
-this guide did.
+**SAY — on transfer.** None of these scripts need to exist in your repository. The scripts are
+not the deliverable. The questions are. Once it is established that a dependency claim requires
+bytecode, a behavior claim requires an executing test, and a business authority claim requires
+the approving organization, generating the corresponding wrapper is a short exercise.
 
 ---
 
 ## Close (~3 min)
 
-**SAY.** Ten questions, and they are the whole lab. Put them on screen:
+**SAY.** Ten questions. They constitute the substance of this session.
 
-1. **Discover** — before loading content, where does truth about this question live?
+1. **Discover** — before loading content, where does authority for this question reside?
 2. **Authority** — what is the strongest evidence that can settle *this* claim?
 3. **Reduce** — what is the minimum signal, and what can be computed outside the model?
-4. **Promote** — which discoveries deserve to survive, with what provenance?
+4. **Promote** — which findings should survive, and with what provenance?
 5. **Package** — what is the minimum viable context for the next specific action?
-6. **Constrain** — does this role need a capability boundary, not just a prompt boundary?
+6. **Constrain** — does this role require a capability boundary rather than an instruction?
 7. **Handoff** — what transfers: the decisions, or the whole conversation?
 8. **Verify** — which criteria are non-negotiable enough to become an executable check?
 9. **Review** — should the evaluator inherit the producer's reasoning, or curated evidence?
 10. **Rehydrate** — can the state be reconstructed from durable artifacts alone?
 
-**SAY.** Notice that none of them are about prompting, and not one of them mentions a model.
+**SAY.** None of them concern prompt construction, and none of them reference a model.
 
-**SAY — what to do Monday.** Pick the smallest one. Take the noisiest command in your own
-workflow and write a reducer for it, with the five properties written down first and a fail-
-closed path. That is one afternoon, and it is the piece everything else in this lab sits on.
+**SAY — the recommended starting point.** Select the noisiest command in your current workflow
+and implement a reducer for it, with the five properties specified in advance and a fail-closed
+path included. That is a single afternoon of work, and it is the foundation the remaining
+practices depend on.
 
-**SAY — the closing thought.** The reason any of this held up is not that the tools are clever.
-It is that at every point where something could have been asserted, a tool required it to be
-proven instead — and at the one point where nothing could prove it, the tool stopped and made a
-person decide, on the record, under their own name.
+**SAY — closing.** What held here was not the sophistication of the tooling. At every point where
+a claim could have been asserted, a tool required it to be demonstrated instead. At the single
+point where nothing could demonstrate it, the tooling stopped and required a person to decide, on
+the record and under their own name.
 
-Context engineering is not about giving the model more. It is about being able to say, later,
-exactly why you believed what you believed.
+Context engineering is not about supplying more material to the model. It is about being able to
+state, afterwards, precisely why a given conclusion was accepted.
 
 ---
 
 ## Retake notes
 
-Stop and restart from a clean state whenever you need to:
+Return to a clean state at any point:
 
 ```bash
 git reset --hard <the starting commit>   # only if you committed in Stage 5
 ./scripts/lab-start.sh --reset
 ```
 
-`--reset` restores `src/`, `config/` and `docs/adr/`, and clears every runtime artifact, so
-Stage 0 looks untouched again.
+`--reset` restores `src/`, `config/` and `docs/adr/` and clears every runtime artifact, so
+Stage 0 presents an untouched repository again.
 
-**Segments you can re-record independently**, because each rebuilds its own inputs: Stage 0–1
-(needs only `--reset`), Stage 2 (standalone), Stage 5's loop sequence (needs Stage 4 complete —
-`apply-reference.sh status` tells you), Stage 7 (standalone).
+**Segments that can be re-recorded independently**, because each rebuilds its own inputs:
+Stages 0 and 1 (requires only `--reset`), Stage 2 (standalone), Stage 5's loop sequence
+(requires Stage 4 complete, which `apply-reference.sh status` confirms), and Stage 7
+(standalone).
 
-**The three moments most likely to need a second take**, none of them terminal commands:
+**The three moments most likely to require a second take**, none of them terminal commands:
 
-- The investigator not dispatching `evidence-checker` — ask it explicitly: *"dispatch
+- The investigator does not dispatch `evidence-checker`. Request it explicitly: *"dispatch
   evidence-checker for this claim."*
-- The `CONTEXT CONFLICT` block not appearing. The terminal half stands alone: the handoff
-  refusal at exit `4` makes the same point without any agent cooperating.
-- The implementer not quoting `HANDOFF_ID:`. Ask it to restate which handoff it worked from.
+- The `CONTEXT CONFLICT` block does not appear. The terminal half of the stage stands on its
+  own: the handoff refusal at exit `4` establishes the same point without agent cooperation.
+- The implementer does not quote `HANDOFF_ID`. Ask it to state which handoff it worked from.
 
-`docs/TROUBLESHOOTING.md` has a fallback for each, and every one of them keeps the stage's
-lesson intact.
+`docs/TROUBLESHOOTING.md` documents a fallback for each, and every one preserves the stage's
+objective.

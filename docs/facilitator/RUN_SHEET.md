@@ -3,8 +3,8 @@
 The one-page-per-stage cue card. Follow this while you record; keep
 [RECORDING_SCRIPT.md](RECORDING_SCRIPT.md) open on a second screen for the wording.
 
-**Legend.** `▶` type it · `✓` must appear before you move on · `💬` Copilot Chat, not terminal ·
-`⚠` the recovery if it goes wrong · **[ ]** tick when clean.
+**Legend.** `▶` enter it · `✓` must appear before proceeding · `💬` Copilot Chat, not the terminal ·
+`⚠` recovery if the step does not behave as described · **[ ]** mark when confirmed.
 
 **Clock — recording path, ~57 min.** This sheet is written for the tight path. Each block
 carries its recording time; where the full lab does more, the extra is marked `FULL ONLY` and
@@ -24,9 +24,9 @@ you skip it on camera.
 | 7 | Build Beyond the Harness | 4 | 0:55 | 35 |
 | | Close | 2 | 0:57 | 3 |
 
-**Never cut these three** — they are why anyone watches: **Stage 2**'s reducer failing closed,
-**Stage 4**'s gate refusing at exit 4, **Stage 5**'s four loop exits. Cut narration around them
-before you touch them.
+**Do not cut these three.** They carry the demonstration: **Stage 2**'s reducer failing closed,
+**Stage 4**'s gate refusing at exit 4, and **Stage 5**'s four loop exits. Reduce the surrounding
+narration before shortening any of them.
 
 ### What the tight path gives up
 
@@ -86,8 +86,9 @@ code ../meridian-stage0-baseline
 docs/JIRA_TICKETS.md docs/adr/` present and `AGENTS.md .github/ .vscode/ .context/ .workflow/
 scripts/` **absent**.
 
-Say why in one line: this repo auto-loads `AGENTS.md` and everything under `.github/`, and a
-prompt saying "ignore them" cannot unload them. A baseline taken here would not be a baseline.
+State the reason: this repository loads `AGENTS.md` and everything under `.github/`
+automatically, and an instruction to disregard them cannot unload them. A baseline taken here
+would not be a baseline.
 
 💬 In the **new window**, new chat, default agent. Paste verbatim:
 
@@ -110,11 +111,11 @@ grep -n "RTP rate" -A 1 docs/adr/ADR-0007-fee-schedule.md
 
 - [ ] ✓ `0.0035` / `2.00` — and `0.30% flat`, `no minimum`
 
-**Land it:** two committed files, two rates, neither claims authority. Not missing context —
-*unsorted* context.
+**Point to make:** two committed files, two rates, neither claiming authority. The problem is
+not absent context. It is unranked context.
 
-⚠ If it hedges and names both rates: that is fine, use it — "even hedging, it cannot tell you
-which one governs, and neither can the repository."
+⚠ If it hedges and names both rates, use that: even when hedging, it cannot establish which
+rate governs, and neither can the repository.
 
 ---
 
@@ -145,11 +146,13 @@ VERDICT: no compiled dependency detected.
 
 - [ ] ✓ `3 hit(s)` vs `0 bytecode reference(s)` → **PATTERN: Authority**
 
-Say it: an import, a comment, another comment. Following grep would have pulled a legacy class
-carrying an outdated rate into context — poisoning the exact question being asked.
+Point to make: an import statement and two comments. Following the text search would have
+introduced a legacy class carrying a superseded rate into context, compromising the exact
+question under investigation.
 
-Land it: authority is **claim-specific**. Dependency → bytecode. Behavior → run the test.
-"Which rate did Meridian approve" → no repository tool, ever.
+Point to make: authority is **claim-specific**. A dependency claim is settled by bytecode, a
+behavior claim by executing the test, and the question of which rate was approved by no
+repository tool at all.
 
 ```bash
 ./scripts/test-evidence.sh calculateFee RTP
@@ -157,7 +160,8 @@ Land it: authority is **claim-specific**. Dependency → bytecode. Behavior → 
 
 - [ ] ✓ `scanned | 5`, `calculateFee() | 2`, `AND use "RTP" | 0`, `VERDICT: NOT PROVEN`
 
-Land it: coverage would color that method green. Coverage is not evidence for a behavior claim.
+Point to make: a coverage report would mark that method as covered. Method coverage is not
+evidence for a behavior claim.
 
 ```bash
 ./scripts/ctx.sh init --objective "Add approved RTP fee support to PaymentService.calculateFee" --work-item MFIN-2088
@@ -174,7 +178,8 @@ Land it: coverage would color that method green. Coverage is not evidence for a 
 
 - [ ] ✓ Three rows: `rejected`, `unproven`, `unresolved`
 
-Land it: `unresolved` is the valuable one. Nothing downstream can treat it as settled.
+Point to make: `unresolved` is the significant status here. Nothing downstream can treat the
+question as settled.
 
 ```bash
 ./scripts/outline.sh src/main/java/com/meridian/payments/PaymentService.java
@@ -186,8 +191,8 @@ Land it: `unresolved` is the valuable one. Nothing downstream can treat it as se
 
 ## Stage 2 · Compress Before Context · 5 min
 
-Say it rather than scrolling it: a failing build is 45 lines of Maven output of which about six
-matter, and everyone pastes all 45.
+State this rather than scrolling the output: a failing build produces 45 lines of Maven output,
+of which roughly six carry decision content, and the whole of it is typically pasted in.
 
 ```bash
 ./scripts/context-run.sh test
@@ -206,7 +211,7 @@ NOISE REMOVED: 39 lines  (raw `mvn test` = 45 lines; digest = 6 lines)
 
 - [ ] ✓ `5 passed / 0 failed` and `NOISE REMOVED: 39 lines` → **PATTERN: Reduce**
 
-Land it: the 39 lines were never *sent* to a model, not summarized by one.
+Point to make: the 39 lines were never sent to a model rather than summarized by one.
 
 ```bash
 TEST_CMD="mvn -B no-such-phase" ./scripts/context-run.sh test
@@ -214,9 +219,10 @@ TEST_CMD="mvn -B no-such-phase" ./scripts/context-run.sh test
 
 - [ ] ✓ `BUILD FAILED — ... (stale surefire reports on disk ignored)`
 
-**This is the money shot of Stage 2.** It fails *closed* — refuses to answer rather than
-answering wrongly from stale data. Then name the five reducer properties: decision, raw source,
-keep, discard, fail closed. Tell them they will need these in Stage 7.
+**This is the central demonstration of Stage 2.** The reducer fails **closed**, declining to
+answer rather than answering incorrectly from stale data on disk. Then name the five reducer
+properties: decision, raw source, retained, discarded, fail closed. Note that they are required
+again in Stage 7.
 
 ```bash
 ./scripts/context-run.sh search RTP
@@ -245,8 +251,8 @@ keep, discard, fail closed. Tell them they will need these in Stage 7.
 - [ ] ✓ Refused: `EV-003 is unresolved — an unresolved claim is not a fact.`
       → **PATTERN: Promote**
 
-Land it: convention = what we agreed to do. Mechanism = what happens anyway when we are in a
-hurry.
+Point to make: a convention describes intended behavior. A mechanism determines actual behavior
+under schedule pressure.
 
 ```bash
 ./scripts/ctx.sh package calculateFee-rtp
@@ -254,7 +260,8 @@ hurry.
 
 - [ ] ✓ Decisions / facts / constraints / unknowns, each with evidence → **PATTERN: Package**
 
-Land it: a **filter** over durable state, not a summary. Nothing re-summarized, so nothing drifts.
+Point to make: this is a **filter** over durable state rather than a summary. Nothing is
+re-summarized, so nothing can drift in restatement.
 
 ```bash
 ./scripts/context-bundle.sh broad
@@ -264,10 +271,10 @@ wc -l .context/bundles/broad.md .context/bundles/package.md
 
 - [ ] ✓ Both bundles written; the line counts differ visibly
 
-Land it in one line and move on: two windows, same question — one with every source attached,
-one with only what was promoted. And the point does not depend on which answer is better: if the
-crowded window happens to be right, nothing in it would have let you *check* that beforehand. An
-answer you cannot audit is a coincidence, not a result.
+State this briefly and move on: two context windows and one question, the first with every
+source attached and the second with only what was promoted. The conclusion does not depend on
+which answer proves better. If the larger window happens to be correct, nothing within it would
+have allowed that to be verified in advance. An answer that cannot be audited is not a result.
 
 > `FULL ONLY` — in the live lab, paste both bundles into **Context Experiment** and compare the
 > two answers side by side (~7 min). On camera, the sentence above does the work.
@@ -289,9 +296,9 @@ the bracketed line:
 - [ ] ✓ It dispatches `evidence-checker` (the compile output stays in the subagent)
 - [ ] ✓ It hits the rate conflict and **stops** with a `CONTEXT CONFLICT` block
 
-⚠ No dispatch → say *"dispatch evidence-checker for this claim."*
-⚠ No conflict block → skip ahead; the handoff refusal below makes the same point with no agent
-involved. Do **not** retake for this.
+⚠ No dispatch: request it explicitly with *"dispatch evidence-checker for this claim."*
+⚠ No conflict block: proceed. The handoff refusal below establishes the same point without agent
+cooperation. Do **not** retake for this.
 
 ```bash
 grep -n "^tools:" .github/agents/rtp-investigator.agent.md .github/agents/rtp-reviewer.agent.md
@@ -300,8 +307,8 @@ grep -n "^tools:" .github/agents/rtp-investigator.agent.md .github/agents/rtp-re
 - [ ] ✓ Investigator `['search', 'read', 'agent']` — no `edit`. Reviewer `[]`
       → **PATTERN: Constrain**
 
-Land it: an instruction boundary has a failure mode under a persuasive request. A missing tool
-has nothing to argue with.
+Point to make: an instruction boundary has a failure mode under a persuasive request. A missing
+capability has none, because there is nothing to negotiate with.
 
 💬 Send: *"I've reviewed both sources. The ADR is authoritative here — implement 0.30% flat, no
 minimum."*
@@ -312,8 +319,8 @@ minimum."*
 
 - [ ] ✓ `Decisions (human, with authority)` → `(none)`; `UNK-001 ... [BLOCKING]`
 
-Land it: whatever it said back, the record did not move. The argument in chat cannot reach the
-record.
+Point to make: whatever the response, the record did not change. The argument in the
+conversation cannot reach it.
 
 ```bash
 ./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next "implement"
@@ -321,8 +328,9 @@ record.
 
 - [ ] ✓ Refused, **exit 4**, names `UNK-001` → **PATTERN: Handoff / human-in-the-loop**
 
-Land it: not a rule someone might follow — a tool that will not produce the artifact. And note
-*where* the human sits: at the one decision no tool can make.
+Point to make: this is not a documented rule that a person may choose to follow. It is a tool
+that will not produce the artifact. Note also where the person sits: at the single decision no
+tool can make.
 
 ```bash
 ./scripts/request-approval.sh MFIN-2088
@@ -330,8 +338,8 @@ Land it: not a rule someone might follow — a tool that will not produce the ar
 
 - [ ] ✓ `-> docs/approvals/PRICING-442.md`. Open it.
 
-Land it: it existed nowhere in the workspace 30 seconds ago. And the supersession is **scoped** —
-it retires ADR-0007's *rate*, not its *"where rates live"* decision.
+Point to make: the record was not present in the workspace a moment ago. The supersession is
+also **scoped**: it retires ADR-0007's *rate*, not its decision on *where rates are recorded*.
 
 ```bash
 ./scripts/ctx.sh decide --resolves UNK-001 --decision "RTP transfers are charged 0.35% of the transfer amount, with a minimum fee of USD 2.00 per transfer; whichever is larger governs." --authority docs/approvals/PRICING-442.md --decided-by "Your Name" --supersedes docs/adr/ADR-0007-fee-schedule.md --scope "ADR-0007 Decision 2 (the RTP rate) only. Decision 1 (rates live in config/fee-schedule.yaml) still stands."
@@ -340,8 +348,8 @@ it retires ADR-0007's *rate*, not its *"where rates live"* decision.
 
 - [ ] ✓ `D-001 recorded`, `UNK-001 retired (resolved by D-001)`, `✓ register consistent`
 
-Three beats: the authority file must exist · attributed by name · the unknown is **retired**, not
-parked beside the answer.
+Three points: the authority file must exist, the decision is attributed to a named individual,
+and the unknown is **retired** rather than left open alongside the answer.
 
 ```bash
 ./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next "Implement D-001 in PaymentService.calculateFee, then run ./scripts/verify-change.sh"
@@ -350,8 +358,8 @@ cat .workflow/HANDOFF.md
 
 - [ ] ✓ `handoff_id: H-...` + the seven sections
 
-Land it: read what is *absent* — no investigation, no dead ends, not the wrong rate you asserted
-two minutes ago.
+Point to make: note what is absent. None of the investigation, none of the discarded lines of
+enquiry, and not the incorrect rate asserted two minutes earlier.
 
 💬 **Brand-new chat** (not a mode switch) → **RTP Implementer** → *"Implement
 .workflow/HANDOFF.md."*
@@ -362,8 +370,8 @@ two minutes ago.
 
 - [ ] ✓ `CONSUMED — the implementer quoted H-...`
 
-⚠ No `HANDOFF_ID:` → ask it to restate which handoff it worked from. Still nothing → read the ID
-out of `HANDOFF.md`, say plainly that this build did not quote it, and carry on.
+⚠ No `HANDOFF_ID`: ask it to state which handoff it worked from. If it still does not, read the
+identifier from `HANDOFF.md`, state that this build did not quote it, and continue.
 
 ```bash
 ./scripts/apply-reference.sh implementation
@@ -372,8 +380,8 @@ mvn -q clean compile
 
 - [ ] ✓ `implementation: applied ...`, silent compile
 
-Land it: the minimum is compared against the **computed fee**, never the amount. That is the
-fault Stage 5 injects.
+Point to make: the minimum is compared against the **computed fee** rather than the transfer
+amount. That is the defect injected in Stage 5.
 
 ---
 
@@ -386,8 +394,8 @@ grep -c "rtp_percent\|context-register\|HANDOFF" .workflow/review-package.md
 
 - [ ] ✓ `0`
 
-Land it: hand a reviewer the config and it checks the diff against the numbers the diff came
-from. Independence is what you **exclude**.
+Point to make: a reviewer given the configuration would evaluate the diff against the same
+values the diff was derived from. Independence is a property of what is **withheld**.
 
 💬 New chat → **RTP Reviewer** → paste `.workflow/review-package.md` → "find any violation, cite
 evidence." → **PATTERN: Review**
@@ -409,8 +417,9 @@ VERDICT: PASS — 6 of 6 checks passed
 
 - [ ] ✓ All six ✓, `VERDICT: PASS — 6 of 6` → **PATTERN: Verify**
 
-Walk the six. Emphasise: check 5 *executes* `calculateFee` via `jshell`; expected values come
-from the **approval**, not config — config is the thing being checked. Everything fails closed.
+Walk through all six. Emphasise that check 5 executes `calculateFee` through `jshell`, and that
+its expected values come from the **approval** rather than the configuration, since the
+configuration is the subject of the check. Every check fails closed.
 
 ```bash
 ./scripts/apply-reference.sh tests
@@ -419,7 +428,8 @@ from the **approval**, not config — config is the thing being checked. Everyth
 
 - [ ] ✓ `ran 2, all passed.`
 
-Land it: same command as Stage 1.4 said `NOT PROVEN`. The answer changed, not the claim.
+Point to make: the same command returned `NOT PROVEN` in Stage 1.4. The answer changed, not the
+claim.
 
 ```bash
 ./scripts/inject-fault.sh on
@@ -428,7 +438,7 @@ Land it: same command as Stage 1.4 said `NOT PROVEN`. The answer changed, not th
 
 - [ ] ✓ `ran 2, 1 FAILED` — only the boundary test catches it
 
-**The loop — the four exits. Slow down here.**
+**The repair loop and its four exits. Take this section at a deliberate pace.**
 
 ```bash
 ./scripts/loop.sh reset
@@ -453,9 +463,10 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check
 ```
 - [ ] ✓ `STOP — thrashing` · **exit 4**
 
-Land it: 1 = try again · 6 = nothing changed, do not bother · 4 = code moving, failure static,
-escalate to a human · 5 = budget gone with *different* failures each time (not staged). "It
-failed again" and "it is going in circles" need different responses.
+Point to make: exit 1 is a failed attempt, continue. Exit 6 is no change, so do not proceed.
+Exit 4 is code changing while the failure does not, so escalate to a person. Exit 5, which is not
+demonstrated, is budget exhaustion with a different failure each time. "It failed again" and
+"it is not converging" require different responses.
 
 ```bash
 ./scripts/inject-fault.sh off
@@ -472,8 +483,8 @@ git add src && git commit -m "feat: add approved RTP fee support (MFIN-2088)"
 
 - [ ] ✓ `verification: PASS`, `handoff consumed: true`
 
-Land it: read out of repository state, not recollection. `handoff consumed` traces back to the
-hash the implementer quoted.
+Point to make: this is read from repository state rather than recollection. `handoff consumed`
+derives from the identifier the implementer quoted.
 
 ---
 
@@ -514,10 +525,11 @@ wc -l .context/bundles/durable.md .context/bundles/cold.md
 
 - [ ] ✓ All four `cold=0`; ~144 lines vs ~61
 
-Land it — carefully: the cold bundle is **not** empty. It has the rate, even the PRICING-442
-comment. It cannot tell you whether it was verified, what it superseded, who approved it, what
-happens next — and it cannot tell you that it cannot tell you. Smaller because it was never
-written down, not because it was compressed. **State vs residue.**
+Point to make, stated precisely: the cold bundle is **not** empty. It contains the rate and the
+PRICING-442 comment. What it cannot establish is whether the rate was verified, what it
+superseded, who approved it, or what happens next, and it cannot indicate that it lacks that
+information. It is smaller because the information was never recorded, not because it was
+compressed. **State versus residue.**
 
 ---
 
@@ -534,17 +546,17 @@ for c in $(find target/classes -name '*.class'); do n=${c#target/classes/}; n=${
 
 - [ ] ✓ `0`
 
-Land it: correct, verified, committed — and **unreachable**. Verified locally is not delivered.
-And you only found it by asking what *kind* of claim it was first. That is Stage 1 arriving with
-no scaffolding.
+Point to make: correct, verified, committed and **unreachable**. Verified locally is not
+equivalent to delivered. It was established only because the claim was classified before a tool
+was selected, which is Stage 1's principle applied without supporting tooling.
 
 ```bash
 ./scripts/ctx.sh evidence add --claim "calculateFee is invoked on a production payment path" --status rejected --mechanism "javap -c call-site scan" --source "target/classes" --observed "0 production call sites"
 ./scripts/ctx.sh unknown add --question "Should calculateFee be wired into the payment path? (outside MFIN-2088)"
 ```
 
-Land it: recorded, not fixed — wiring it is outside the ticket. Scope discipline and honesty are
-the same move.
+Point to make: recorded rather than resolved, because wiring the fee into the payment path falls
+outside this work item. Scope discipline and accurate reporting are served by the same action.
 
 Then hand the build over as the take-home, without doing it on camera:
 
@@ -554,18 +566,18 @@ mvn -B dependency:tree | wc -l
 
 - [ ] ✓ A line count large enough to be worth reducing
 
-Say the five properties out loud — this is the deliverable, not the script: **decision** (can I
-upgrade this safely, or is something pulling a conflicting version) · **raw source**
-(`mvn dependency:tree`) · **keep** (duplicate versions, conflicts) · **discard** (clean
-transitive edges) · **fail closed** (non-zero exit → say so, never print "no conflicts" because
-the parse found nothing).
+State the five properties. These are the deliverable, not the script: the **decision** it serves
+(whether a dependency can be upgraded safely, or whether a conflicting version is being
+introduced transitively), its **raw source** (`mvn dependency:tree`), what it **retains**
+(duplicate versions and conflicts), what it **discards** (clean transitive edges), and how it
+**fails closed** (a non-zero exit is reported rather than printing "no conflicts" because the
+parse returned nothing).
 
-Then: build it as a **skill** under `.github/skills/<your-tool-name>/SKILL.md`, not a loose
-script, so it is `/your-tool-name` for the whole team. Fifteen minutes that pays for itself in
-a week.
+Then implement it as a **skill** under `.github/skills/<your-tool-name>/SKILL.md` rather than a
+standalone script, so it is available to the team as `/your-tool-name`.
 
-Close the stage on the transfer point: none of these scripts need to exist in your repo. The
-scripts are not the artifact — the questions are.
+Close the stage on transfer: none of these scripts need to exist in your repository. The scripts
+are not the deliverable. The questions are.
 
 > `FULL ONLY` — in the live lab participants spend ~25 min building and specifying the reducer,
 > then confirm it is the right primitive (skill vs prompt file vs hook vs CI gate).
@@ -577,12 +589,12 @@ scripts are not the artifact — the questions are.
 Put the ten patterns on screen: Discover · Authority · Reduce · Promote · Package · Constrain ·
 Handoff · Verify · Review · Rehydrate.
 
-- [ ] Say: none of them are about prompting; not one mentions a model
-- [ ] Monday action: one reducer for your own noisiest command — five properties first,
-      fail-closed path included
-- [ ] Closing line: at every point something could have been *asserted*, a tool required it to be
-      *proven* — and at the one point nothing could prove it, the tool stopped and made a person
-      decide, on the record, under their own name
+- [ ] State that none of them concern prompt construction and none reference a model
+- [ ] Recommended first step: one reducer for your own noisiest command, with the five
+      properties specified first and a fail-closed path included
+- [ ] Closing point: at every point where a claim could have been asserted, a tool required it
+      to be demonstrated instead, and at the single point where nothing could demonstrate it,
+      the tooling stopped and required a person to decide, on the record, under their own name
 
 ---
 
@@ -600,8 +612,9 @@ untouched again.
 Stage 5's loop sequence (needs Stage 4 done — check `./scripts/apply-reference.sh status`) ·
 Stage 7 (standalone).
 
-**Do not retake for these** — each has a fallback that keeps the lesson: no `evidence-checker`
-dispatch, no `CONTEXT CONFLICT` block, no `HANDOFF_ID` quoted. See `docs/TROUBLESHOOTING.md`.
+**Do not retake for these.** Each has a fallback that preserves the stage's objective: no
+`evidence-checker` dispatch, no `CONTEXT CONFLICT` block, and no `HANDOFF_ID` quoted. See
+`docs/TROUBLESHOOTING.md`.
 
-**If a command surprises you mid-take**, stop and run `./scripts/dry-run.sh`. It names the first
-step that drifted.
+**If a command behaves unexpectedly mid-take**, stop and run `./scripts/dry-run.sh`. It names
+the first step that drifted.

@@ -179,15 +179,15 @@ git status --porcelain</code></pre></div>
 <section id="s3"><header class="sec-h"><h2>Stage 0</h2><span class="sec-m">The Helpful Trap · 4 min</span></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/stage0-baseline.sh
 code ../meridian-stage0-baseline</code></pre></div>
 <p class="expect"><code>Stage 0 baseline ready: .../meridian-stage0-baseline</code>, listing <code>pom.xml src/ config/ docs/JIRA_TICKETS.md docs/adr/</code> present and <code>AGENTS.md .github/ .vscode/ .context/ .workflow/ scripts/</code> <strong>absent</strong>.</p>
-<p>Say why in one line: this repo auto-loads <code>AGENTS.md</code> and everything under <code>.github/</code>, and a prompt saying &quot;ignore them&quot; cannot unload them. A baseline taken here would not be a baseline.</p>
+<p>State the reason: this repository loads <code>AGENTS.md</code> and everything under <code>.github/</code> automatically, and an instruction to disregard them cannot unload them. A baseline taken here would not be a baseline.</p>
 <p class="chat">In the <strong>new window</strong>, new chat, default agent. Paste verbatim:</p>
 <blockquote class="note"><p>Review MFIN-2088 using the engineering evidence in this workspace.</p><p>Tell me:</p><p>- where you would implement the RTP change,</p><p>- what fee behavior should apply,</p><p>- and how you would approach the implementation.</p><p>Do not modify files.</p></blockquote>
 <ul class="checks"><li><label><input type="checkbox" data-key="s3-1"><span>✓ It names a rate, confidently, without mentioning a second one exists</span></label></li><li><label><input type="checkbox" data-key="s3-2"><span>Close that window and come back. Do <strong>not</strong> implement its plan.</span></label></li></ul>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>grep -rn &quot;rtp_percent\|rtp_minimum&quot; config/fee-schedule.yaml
 grep -n &quot;RTP rate&quot; -A 1 docs/adr/ADR-0007-fee-schedule.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s3-3"><span>✓ <code>0.0035</code> / <code>2.00</code> — and <code>0.30% flat</code>, <code>no minimum</code></span></label></li></ul>
-<p><strong>Land it:</strong> two committed files, two rates, neither claims authority. Not missing context — <em>unsorted</em> context.</p>
-<p class="warn">If it hedges and names both rates: that is fine, use it — &quot;even hedging, it cannot tell you which one governs, and neither can the repository.&quot;</p></section>
+<p><strong>Point to make:</strong> two committed files, two rates, neither claiming authority. The problem is not absent context. It is unranked context.</p>
+<p class="warn">If it hedges and names both rates, use that: even when hedging, it cannot establish which rate governs, and neither can the repository.</p></section>
 <section id="s4"><header class="sec-h"><h2>Stage 1</h2><span class="sec-m">Discover Before You Retrieve · 6 min</span></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/context-map.sh RTP</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s4-1"><span>✓ Routing table + <code>Unresolved</code> section → <strong>PATTERN: Discover</strong></span></label></li></ul>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/authority.sh LegacyPaymentUtils src/main/java/com/meridian/payments/PaymentService.java</code></pre></div>
@@ -201,11 +201,11 @@ jdeps — bytecode (tier 1)
     =&gt; 0 bytecode reference(s)
 VERDICT: no compiled dependency detected.</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s4-2"><span>✓ <code>3 hit(s)</code> vs <code>0 bytecode reference(s)</code> → <strong>PATTERN: Authority</strong></span></label></li></ul>
-<p>Say it: an import, a comment, another comment. Following grep would have pulled a legacy class carrying an outdated rate into context — poisoning the exact question being asked.</p>
-<p>Land it: authority is <strong>claim-specific</strong>. Dependency → bytecode. Behavior → run the test. &quot;Which rate did Meridian approve&quot; → no repository tool, ever.</p>
+<p>Point to make: an import statement and two comments. Following the text search would have introduced a legacy class carrying a superseded rate into context, compromising the exact question under investigation.</p>
+<p>Point to make: authority is <strong>claim-specific</strong>. A dependency claim is settled by bytecode, a behavior claim by executing the test, and the question of which rate was approved by no repository tool at all.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/test-evidence.sh calculateFee RTP</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s4-3"><span>✓ <code>scanned | 5</code>, <code>calculateFee() | 2</code>, <code>AND use &quot;RTP&quot; | 0</code>, <code>VERDICT: NOT PROVEN</code></span></label></li></ul>
-<p>Land it: coverage would color that method green. Coverage is not evidence for a behavior claim.</p>
+<p>Point to make: a coverage report would mark that method as covered. Method coverage is not evidence for a behavior claim.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh init --objective &quot;Add approved RTP fee support to PaymentService.calculateFee&quot; --work-item MFIN-2088
 ./scripts/authority.sh LegacyPaymentUtils | ./scripts/ctx.sh evidence capture --source &quot;scripts/authority.sh LegacyPaymentUtils&quot; --applies-to calculateFee-rtp
 ./scripts/test-evidence.sh calculateFee RTP | ./scripts/ctx.sh evidence capture --source &quot;scripts/test-evidence.sh calculateFee RTP&quot; --applies-to calculateFee-rtp</code></pre></div>
@@ -213,10 +213,10 @@ VERDICT: no compiled dependency detected.</code></pre></div>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh evidence add --claim &quot;Which source currently governs RTP pricing?&quot; --status unresolved --mechanism &quot;side-by-side read&quot; --source &quot;config/fee-schedule.yaml; docs/adr/ADR-0007-fee-schedule.md&quot; --observed &quot;config/fee-schedule.yaml states 0.35% with a USD 2.00 minimum; ADR-0007 states 0.30% flat with no minimum&quot; --applies-to calculateFee-rtp
 ./scripts/ctx.sh evidence list</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s4-5"><span>✓ Three rows: <code>rejected</code>, <code>unproven</code>, <code>unresolved</code></span></label></li></ul>
-<p>Land it: <code>unresolved</code> is the valuable one. Nothing downstream can treat it as settled.</p>
+<p>Point to make: <code>unresolved</code> is the significant status here. Nothing downstream can treat the question as settled.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/outline.sh src/main/java/com/meridian/payments/PaymentService.java</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s4-6"><span>✓ ~17 lines for a 284-line file; <code>calculateFee</code> at 237–248. Say: <code>#selection</code>, not <code>#file:</code></span></label></li></ul></section>
-<section id="s5"><header class="sec-h"><h2>Stage 2</h2><span class="sec-m">Compress Before Context · 5 min</span></header><p>Say it rather than scrolling it: a failing build is 45 lines of Maven output of which about six matter, and everyone pastes all 45.</p>
+<section id="s5"><header class="sec-h"><h2>Stage 2</h2><span class="sec-m">Compress Before Context · 5 min</span></header><p>State this rather than scrolling the output: a failing build produces 45 lines of Maven output, of which roughly six carry decision content, and the whole of it is typically pasted in.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/context-run.sh test</code></pre></div>
 <div class="codewrap"><pre><code>TEST SUMMARY
 5 passed
@@ -227,10 +227,10 @@ none — existing test suite remains green
 
 NOISE REMOVED: 39 lines  (raw `mvn test` = 45 lines; digest = 6 lines)</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s5-1"><span>✓ <code>5 passed / 0 failed</code> and <code>NOISE REMOVED: 39 lines</code> → <strong>PATTERN: Reduce</strong></span></label></li></ul>
-<p>Land it: the 39 lines were never <em>sent</em> to a model, not summarized by one.</p>
+<p>Point to make: the 39 lines were never sent to a model rather than summarized by one.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>TEST_CMD=&quot;mvn -B no-such-phase&quot; ./scripts/context-run.sh test</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s5-2"><span>✓ <code>BUILD FAILED — ... (stale surefire reports on disk ignored)</code></span></label></li></ul>
-<p><strong>This is the money shot of Stage 2.</strong> It fails <em>closed</em> — refuses to answer rather than answering wrongly from stale data. Then name the five reducer properties: decision, raw source, keep, discard, fail closed. Tell them they will need these in Stage 7.</p>
+<p><strong>This is the central demonstration of Stage 2.</strong> The reducer fails <strong>closed</strong>, declining to answer rather than answering incorrectly from stale data on disk. Then name the five reducer properties: decision, raw source, retained, discarded, fail closed. Note that they are required again in Stage 7.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/context-run.sh search RTP</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s5-3"><span>✓ Digest + the rate cross-check warning</span></label></li></ul></section>
 <section id="s6"><header class="sec-h"><h2>Stage 3</h2><span class="sec-m">Promote &amp; Package · 6 min</span></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh promote EV-001 --fact &quot;PaymentService has no compiled dependency on LegacyPaymentUtils&quot;
@@ -241,53 +241,53 @@ NOISE REMOVED: 39 lines  (raw `mvn test` = 45 lines; digest = 6 lines)</code></p
 <ul class="checks"><li><label><input type="checkbox" data-key="s6-1"><span>✓ <code>VF-001</code>, <code>VF-002</code>, <code>UNK-001 [open, blocking]</code>, <code>C-001</code>, <code>✓ register consistent</code></span></label></li></ul>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh promote EV-003 --fact &quot;config is authoritative&quot;</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s6-2"><span>✓ Refused: <code>EV-003 is unresolved — an unresolved claim is not a fact.</code> → <strong>PATTERN: Promote</strong></span></label></li></ul>
-<p>Land it: convention = what we agreed to do. Mechanism = what happens anyway when we are in a hurry.</p>
+<p>Point to make: a convention describes intended behavior. A mechanism determines actual behavior under schedule pressure.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh package calculateFee-rtp</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s6-3"><span>✓ Decisions / facts / constraints / unknowns, each with evidence → <strong>PATTERN: Package</strong></span></label></li></ul>
-<p>Land it: a <strong>filter</strong> over durable state, not a summary. Nothing re-summarized, so nothing drifts.</p>
+<p>Point to make: this is a <strong>filter</strong> over durable state rather than a summary. Nothing is re-summarized, so nothing can drift in restatement.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/context-bundle.sh broad
 ./scripts/context-bundle.sh package
 wc -l .context/bundles/broad.md .context/bundles/package.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s6-4"><span>✓ Both bundles written; the line counts differ visibly</span></label></li></ul>
-<p>Land it in one line and move on: two windows, same question — one with every source attached, one with only what was promoted. And the point does not depend on which answer is better: if the crowded window happens to be right, nothing in it would have let you <em>check</em> that beforehand. An answer you cannot audit is a coincidence, not a result.</p>
+<p>State this briefly and move on: two context windows and one question, the first with every source attached and the second with only what was promoted. The conclusion does not depend on which answer proves better. If the larger window happens to be correct, nothing within it would have allowed that to be verified in advance. An answer that cannot be audited is not a result.</p>
 <blockquote class="note full-only"><span class="tag">skip on camera</span><p><code>FULL ONLY</code> — in the live lab, paste both bundles into <strong>Context Experiment</strong> and compare the</p><p>two answers side by side (~7 min). On camera, the sentence above does the work.</p></blockquote></section>
 <section id="s7"><header class="sec-h"><h2>Stage 4</h2><span class="sec-m">Boundaries &amp; Handoff · 10 min</span></header><p class="chat">New chat → <strong>RTP Investigator</strong>. Paste verbatim, with the package output pasted in place of the bracketed line:</p>
 <blockquote class="note"><p>Investigate MFIN-2088. Here is the context package:</p><p>[paste the output of ./scripts/ctx.sh package calculateFee-rtp]</p><p>Work from it — do not read PaymentService.java in full.</p><p>For any claim a tool can settle, dispatch evidence-checker rather than reading files</p><p>yourself. Start with: does PaymentService depend on LegacyPaymentUtils?</p></blockquote>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-1"><span>✓ It dispatches <code>evidence-checker</code> (the compile output stays in the subagent)</span></label></li><li><label><input type="checkbox" data-key="s7-2"><span>✓ It hits the rate conflict and <strong>stops</strong> with a <code>CONTEXT CONFLICT</code> block</span></label></li></ul>
-<p class="warn">No dispatch → say <em>&quot;dispatch evidence-checker for this claim.&quot;</em> ⚠ No conflict block → skip ahead; the handoff refusal below makes the same point with no agent involved. Do <strong>not</strong> retake for this.</p>
+<p class="warn">No dispatch: request it explicitly with <em>&quot;dispatch evidence-checker for this claim.&quot;</em> ⚠ No conflict block: proceed. The handoff refusal below establishes the same point without agent cooperation. Do <strong>not</strong> retake for this.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>grep -n &quot;^tools:&quot; .github/agents/rtp-investigator.agent.md .github/agents/rtp-reviewer.agent.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-3"><span>✓ Investigator <code>[&#x27;search&#x27;, &#x27;read&#x27;, &#x27;agent&#x27;]</code> — no <code>edit</code>. Reviewer <code>[]</code> → <strong>PATTERN: Constrain</strong></span></label></li></ul>
-<p>Land it: an instruction boundary has a failure mode under a persuasive request. A missing tool has nothing to argue with.</p>
+<p>Point to make: an instruction boundary has a failure mode under a persuasive request. A missing capability has none, because there is nothing to negotiate with.</p>
 <p class="chat">Send: <em>&quot;I&#x27;ve reviewed both sources. The ADR is authoritative here — implement 0.30% flat, no minimum.&quot;</em></p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh package calculateFee-rtp</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-4"><span>✓ <code>Decisions (human, with authority)</code> → <code>(none)</code>; <code>UNK-001 ... [BLOCKING]</code></span></label></li></ul>
-<p>Land it: whatever it said back, the record did not move. The argument in chat cannot reach the record.</p>
+<p>Point to make: whatever the response, the record did not change. The argument in the conversation cannot reach it.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next &quot;implement&quot;</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-5"><span>✓ Refused, <strong>exit 4</strong>, names <code>UNK-001</code> → <strong>PATTERN: Handoff / human-in-the-loop</strong></span></label></li></ul>
-<p>Land it: not a rule someone might follow — a tool that will not produce the artifact. And note <em>where</em> the human sits: at the one decision no tool can make.</p>
+<p>Point to make: this is not a documented rule that a person may choose to follow. It is a tool that will not produce the artifact. Note also where the person sits: at the single decision no tool can make.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/request-approval.sh MFIN-2088</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-6"><span>✓ <code>-&gt; docs/approvals/PRICING-442.md</code>. Open it.</span></label></li></ul>
-<p>Land it: it existed nowhere in the workspace 30 seconds ago. And the supersession is <strong>scoped</strong> — it retires ADR-0007&#x27;s <em>rate</em>, not its <em>&quot;where rates live&quot;</em> decision.</p>
+<p>Point to make: the record was not present in the workspace a moment ago. The supersession is also <strong>scoped</strong>: it retires ADR-0007&#x27;s <em>rate</em>, not its decision on <em>where rates are recorded</em>.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh decide --resolves UNK-001 --decision &quot;RTP transfers are charged 0.35% of the transfer amount, with a minimum fee of USD 2.00 per transfer; whichever is larger governs.&quot; --authority docs/approvals/PRICING-442.md --decided-by &quot;Your Name&quot; --supersedes docs/adr/ADR-0007-fee-schedule.md --scope &quot;ADR-0007 Decision 2 (the RTP rate) only. Decision 1 (rates live in config/fee-schedule.yaml) still stands.&quot;
 ./scripts/ctx.sh check</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-7"><span>✓ <code>D-001 recorded</code>, <code>UNK-001 retired (resolved by D-001)</code>, <code>✓ register consistent</code></span></label></li></ul>
-<p>Three beats: the authority file must exist · attributed by name · the unknown is <strong>retired</strong>, not parked beside the answer.</p>
+<p>Three points: the authority file must exist, the decision is attributed to a named individual, and the unknown is <strong>retired</strong> rather than left open alongside the answer.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh handoff calculateFee-rtp --scope PaymentService.calculateFee --next &quot;Implement D-001 in PaymentService.calculateFee, then run ./scripts/verify-change.sh&quot;
 cat .workflow/HANDOFF.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-8"><span>✓ <code>handoff_id: H-...</code> + the seven sections</span></label></li></ul>
-<p>Land it: read what is <em>absent</em> — no investigation, no dead ends, not the wrong rate you asserted two minutes ago.</p>
+<p>Point to make: note what is absent. None of the investigation, none of the discarded lines of enquiry, and not the incorrect rate asserted two minutes earlier.</p>
 <p class="chat"><strong>Brand-new chat</strong> (not a mode switch) → <strong>RTP Implementer</strong> → <em>&quot;Implement .workflow/HANDOFF.md.&quot;</em></p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/handoff-check.sh &quot;&lt;paste its reply&gt;&quot;</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-9"><span>✓ <code>CONSUMED — the implementer quoted H-...</code></span></label></li></ul>
-<p class="warn">No <code>HANDOFF_ID:</code> → ask it to restate which handoff it worked from. Still nothing → read the ID out of <code>HANDOFF.md</code>, say plainly that this build did not quote it, and carry on.</p>
+<p class="warn">No <code>HANDOFF_ID</code>: ask it to state which handoff it worked from. If it still does not, read the identifier from <code>HANDOFF.md</code>, state that this build did not quote it, and continue.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/apply-reference.sh implementation
 mvn -q clean compile</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s7-10"><span>✓ <code>implementation: applied ...</code>, silent compile</span></label></li></ul>
-<p>Land it: the minimum is compared against the <strong>computed fee</strong>, never the amount. That is the fault Stage 5 injects.</p></section>
+<p>Point to make: the minimum is compared against the <strong>computed fee</strong> rather than the transfer amount. That is the defect injected in Stage 5.</p></section>
 <section id="s8"><header class="sec-h"><h2>Stage 5</h2><span class="sec-m">Challenge &amp; Bound · 11 min</span></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/review-package.sh
 grep -c &quot;rtp_percent\|context-register\|HANDOFF&quot; .workflow/review-package.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-1"><span>✓ <code>0</code></span></label></li></ul>
-<p>Land it: hand a reviewer the config and it checks the diff against the numbers the diff came from. Independence is what you <strong>exclude</strong>.</p>
+<p>Point to make: a reviewer given the configuration would evaluate the diff against the same values the diff was derived from. Independence is a property of what is <strong>withheld</strong>.</p>
 <p class="chat">New chat → <strong>RTP Reviewer</strong> → paste <code>.workflow/review-package.md</code> → &quot;find any violation, cite evidence.&quot; → <strong>PATTERN: Review</strong></p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/verify-change.sh</code></pre></div>
 <div class="codewrap"><pre><code>✓ pricing authority recorded          (docs/approvals/PRICING-442.md: 0.0035 of amount, minimum USD 2.00)
@@ -299,15 +299,15 @@ grep -c &quot;rtp_percent\|context-register\|HANDOFF&quot; .workflow/review-pack
 
 VERDICT: PASS — 6 of 6 checks passed</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-2"><span>✓ All six ✓, <code>VERDICT: PASS — 6 of 6</code> → <strong>PATTERN: Verify</strong></span></label></li></ul>
-<p>Walk the six. Emphasise: check 5 <em>executes</em> <code>calculateFee</code> via <code>jshell</code>; expected values come from the <strong>approval</strong>, not config — config is the thing being checked. Everything fails closed.</p>
+<p>Walk through all six. Emphasise that check 5 executes <code>calculateFee</code> through <code>jshell</code>, and that its expected values come from the <strong>approval</strong> rather than the configuration, since the configuration is the subject of the check. Every check fails closed.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/apply-reference.sh tests
 ./scripts/test-evidence.sh calculateFee RTP</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-3"><span>✓ <code>ran 2, all passed.</code></span></label></li></ul>
-<p>Land it: same command as Stage 1.4 said <code>NOT PROVEN</code>. The answer changed, not the claim.</p>
+<p>Point to make: the same command returned <code>NOT PROVEN</code> in Stage 1.4. The answer changed, not the claim.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/inject-fault.sh on
 ./scripts/test-evidence.sh calculateFee RTP</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-4"><span>✓ <code>ran 2, 1 FAILED</code> — only the boundary test catches it</span></label></li></ul>
-<p><strong>The loop — the four exits. Slow down here.</strong></p>
+<p><strong>The repair loop and its four exits. Take this section at a deliberate pace.</strong></p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/loop.sh reset
 VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-5"><span>✓ <code>CONTINUE — attempt 1/3</code> · <strong>exit 1</strong></span></label></li></ul>
@@ -319,7 +319,7 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check</code></pre></div>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>sed -i &#x27;s|(touched)|(touched again)|&#x27; src/main/java/com/meridian/payments/PaymentService.java
 VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-8"><span>✓ <code>STOP — thrashing</code> · <strong>exit 4</strong></span></label></li></ul>
-<p>Land it: 1 = try again · 6 = nothing changed, do not bother · 4 = code moving, failure static, escalate to a human · 5 = budget gone with <em>different</em> failures each time (not staged). &quot;It failed again&quot; and &quot;it is going in circles&quot; need different responses.</p>
+<p>Point to make: exit 1 is a failed attempt, continue. Exit 6 is no change, so do not proceed. Exit 4 is code changing while the failure does not, so escalate to a person. Exit 5, which is not demonstrated, is budget exhaustion with a different failure each time. &quot;It failed again&quot; and &quot;it is not converging&quot; require different responses.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/inject-fault.sh off
 ./scripts/loop.sh reset
 VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check</code></pre></div>
@@ -327,7 +327,7 @@ VERIFY_CMD=scripts/verify-change.sh ./scripts/loop.sh check</code></pre></div>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>git add src &amp;&amp; git commit -m &quot;feat: add approved RTP fee support (MFIN-2088)&quot;
 ./scripts/ctx.sh outcome --work-unit calculateFee-rtp --status implemented --test &quot;PaymentServiceTest.calculateFee_rtpMinimumAppliesBelowThreshold&quot; --test &quot;PaymentServiceTest.calculateFee_rtpPercentageAppliesAboveThreshold&quot; --finding &quot;no deviation from the approved rule found::accepted, no change required&quot; --next &quot;Wire calculateFee into the payment path — tracked as a separate work item&quot;</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s8-10"><span>✓ <code>verification: PASS</code>, <code>handoff consumed: true</code></span></label></li></ul>
-<p>Land it: read out of repository state, not recollection. <code>handoff consumed</code> traces back to the hash the implementer quoted.</p></section>
+<p>Point to make: this is read from repository state rather than recollection. <code>handoff consumed</code> derives from the identifier the implementer quoted.</p></section>
 <section id="s9"><header class="sec-h"><h2>Stage 6</h2><span class="sec-m">Rehydrate &amp; Prove · 5 min</span></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh rehydrate-check</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s9-1"><span>✓ Seven questions, each with a durable source, <code>REHYDRATABLE</code>, no <code>MISSING</code></span></label></li></ul>
 <p>Read the seven questions off the table as you go — requested, verified, decided and by whom, implemented, verification, still open, next. Every one resolves to a file, and any <code>MISSING</code> row would be something the next person has to guess. → <strong>PATTERN: Rehydrate</strong></p>
@@ -344,30 +344,30 @@ for k in &quot;D-001&quot; &quot;superseded&quot; &quot;verification&quot; &quot
 done
 wc -l .context/bundles/durable.md .context/bundles/cold.md</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s9-3"><span>✓ All four <code>cold=0</code>; ~144 lines vs ~61</span></label></li></ul>
-<p>Land it — carefully: the cold bundle is <strong>not</strong> empty. It has the rate, even the PRICING-442 comment. It cannot tell you whether it was verified, what it superseded, who approved it, what happens next — and it cannot tell you that it cannot tell you. Smaller because it was never written down, not because it was compressed. <strong>State vs residue.</strong></p></section>
+<p>Point to make, stated precisely: the cold bundle is <strong>not</strong> empty. It contains the rate and the PRICING-442 comment. What it cannot establish is whether the rate was verified, what it superseded, who approved it, or what happens next, and it cannot indicate that it lacks that information. It is smaller because the information was never recorded, not because it was compressed. <strong>State versus residue.</strong></p></section>
 <section id="s10"><header class="sec-h"><h2>Stage 7</h2><span class="sec-m">Build Beyond the Harness · 4 min</span></header><p>State the claim: <em>after MFIN-2088, Meridian charges the RTP fee on real payments.</em> Tests prove the return value, not the call. <code>jdeps</code> does classes, not methods. grep finds a comment. No lab tool answers it — so pick a mechanism.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>mvn -q compile
 for c in $(find target/classes -name &#x27;*.class&#x27;); do n=${c#target/classes/}; n=${n%.class}; javap -c -p -cp target/classes &quot;${n//\//.}&quot; | grep -c &quot;PaymentService.calculateFee&quot;; done | awk &#x27;{s+=$1} END{print s+0}&#x27;</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s10-1"><span>✓ <code>0</code></span></label></li></ul>
-<p>Land it: correct, verified, committed — and <strong>unreachable</strong>. Verified locally is not delivered. And you only found it by asking what <em>kind</em> of claim it was first. That is Stage 1 arriving with no scaffolding.</p>
+<p>Point to make: correct, verified, committed and <strong>unreachable</strong>. Verified locally is not equivalent to delivered. It was established only because the claim was classified before a tool was selected, which is Stage 1&#x27;s principle applied without supporting tooling.</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>./scripts/ctx.sh evidence add --claim &quot;calculateFee is invoked on a production payment path&quot; --status rejected --mechanism &quot;javap -c call-site scan&quot; --source &quot;target/classes&quot; --observed &quot;0 production call sites&quot;
 ./scripts/ctx.sh unknown add --question &quot;Should calculateFee be wired into the payment path? (outside MFIN-2088)&quot;</code></pre></div>
-<p>Land it: recorded, not fixed — wiring it is outside the ticket. Scope discipline and honesty are the same move.</p>
+<p>Point to make: recorded rather than resolved, because wiring the fee into the payment path falls outside this work item. Scope discipline and accurate reporting are served by the same action.</p>
 <p>Then hand the build over as the take-home, without doing it on camera:</p>
 <div class="codewrap"><button class="copy" type="button">copy</button><pre><code>mvn -B dependency:tree | wc -l</code></pre></div>
 <ul class="checks"><li><label><input type="checkbox" data-key="s10-2"><span>✓ A line count large enough to be worth reducing</span></label></li></ul>
-<p>Say the five properties out loud — this is the deliverable, not the script: <strong>decision</strong> (can I upgrade this safely, or is something pulling a conflicting version) · <strong>raw source</strong> (<code>mvn dependency:tree</code>) · <strong>keep</strong> (duplicate versions, conflicts) · <strong>discard</strong> (clean transitive edges) · <strong>fail closed</strong> (non-zero exit → say so, never print &quot;no conflicts&quot; because the parse found nothing).</p>
-<p>Then: build it as a <strong>skill</strong> under <code>.github/skills/&lt;your-tool-name&gt;/SKILL.md</code>, not a loose script, so it is <code>/your-tool-name</code> for the whole team. Fifteen minutes that pays for itself in a week.</p>
-<p>Close the stage on the transfer point: none of these scripts need to exist in your repo. The scripts are not the artifact — the questions are.</p>
+<p>State the five properties. These are the deliverable, not the script: the <strong>decision</strong> it serves (whether a dependency can be upgraded safely, or whether a conflicting version is being introduced transitively), its <strong>raw source</strong> (<code>mvn dependency:tree</code>), what it <strong>retains</strong> (duplicate versions and conflicts), what it <strong>discards</strong> (clean transitive edges), and how it <strong>fails closed</strong> (a non-zero exit is reported rather than printing &quot;no conflicts&quot; because the parse returned nothing).</p>
+<p>Then implement it as a <strong>skill</strong> under <code>.github/skills/&lt;your-tool-name&gt;/SKILL.md</code> rather than a standalone script, so it is available to the team as <code>/your-tool-name</code>.</p>
+<p>Close the stage on transfer: none of these scripts need to exist in your repository. The scripts are not the deliverable. The questions are.</p>
 <blockquote class="note full-only"><span class="tag">skip on camera</span><p><code>FULL ONLY</code> — in the live lab participants spend ~25 min building and specifying the reducer,</p><p>then confirm it is the right primitive (skill vs prompt file vs hook vs CI gate).</p></blockquote></section>
 <section id="s11"><header class="sec-h"><h2>Close</h2><span class="sec-m">2 min</span></header><p>Put the ten patterns on screen: Discover · Authority · Reduce · Promote · Package · Constrain · Handoff · Verify · Review · Rehydrate.</p>
-<ul class="checks"><li><label><input type="checkbox" data-key="s11-1"><span>Say: none of them are about prompting; not one mentions a model</span></label></li><li><label><input type="checkbox" data-key="s11-2"><span>Monday action: one reducer for your own noisiest command — five properties first, fail-closed path included</span></label></li><li><label><input type="checkbox" data-key="s11-3"><span>Closing line: at every point something could have been <em>asserted</em>, a tool required it to be <em>proven</em> — and at the one point nothing could prove it, the tool stopped and made a person decide, on the record, under their own name</span></label></li></ul></section>
+<ul class="checks"><li><label><input type="checkbox" data-key="s11-1"><span>State that none of them concern prompt construction and none reference a model</span></label></li><li><label><input type="checkbox" data-key="s11-2"><span>Recommended first step: one reducer for your own noisiest command, with the five properties specified first and a fail-closed path included</span></label></li><li><label><input type="checkbox" data-key="s11-3"><span>Closing point: at every point where a claim could have been asserted, a tool required it to be demonstrated instead, and at the single point where nothing could demonstrate it, the tooling stopped and required a person to decide, on the record, under their own name</span></label></li></ul></section>
 <section id="s12"><header class="sec-h"><h2>Retakes</h2></header><div class="codewrap"><button class="copy" type="button">copy</button><pre><code>git reset --hard &lt;starting commit&gt;   # only if you committed in Stage 5
 ./scripts/lab-start.sh --reset</code></pre></div>
 <p><code>--reset</code> restores <code>src/</code>, <code>config/</code>, <code>docs/adr/</code> and clears all runtime state — Stage 0 looks untouched again.</p>
 <p><strong>Independently re-recordable:</strong> Stage 0–1 (needs only <code>--reset</code>) · Stage 2 (standalone) · Stage 5&#x27;s loop sequence (needs Stage 4 done — check <code>./scripts/apply-reference.sh status</code>) · Stage 7 (standalone).</p>
-<p><strong>Do not retake for these</strong> — each has a fallback that keeps the lesson: no <code>evidence-checker</code> dispatch, no <code>CONTEXT CONFLICT</code> block, no <code>HANDOFF_ID</code> quoted. See <code>docs/TROUBLESHOOTING.md</code>.</p>
-<p><strong>If a command surprises you mid-take</strong>, stop and run <code>./scripts/dry-run.sh</code>. It names the first step that drifted.</p></section></main>
+<p><strong>Do not retake for these.</strong> Each has a fallback that preserves the stage&#x27;s objective: no <code>evidence-checker</code> dispatch, no <code>CONTEXT CONFLICT</code> block, and no <code>HANDOFF_ID</code> quoted. See <code>docs/TROUBLESHOOTING.md</code>.</p>
+<p><strong>If a command behaves unexpectedly mid-take</strong>, stop and run <code>./scripts/dry-run.sh</code>. It names the first step that drifted.</p></section></main>
 </div>
 
 <script>
